@@ -89,7 +89,7 @@ class DummyUser {
   ]
   def dummy_borrow = [
     ID: "3001",
-    user_ID: '1'
+    user_ID: '1',
     amount : 50000,
     term : 6,
     interest : 0.02,
