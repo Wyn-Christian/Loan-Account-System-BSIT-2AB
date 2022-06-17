@@ -67,10 +67,19 @@ class DBUtilities {
 }
 
 class DummyAccount {
-  def dummy_forAdmin = [
+  def dummy_Admin = [
       username : "Johnny",
       password : "4321",
   ];
+  int login(username, password) {
+    if(dummy_Admin.username != username){
+      return 1
+    } else if (dummy_Admin.password != password){
+      return 2
+    } else {
+      return 0
+    }
+  }
 }
 
 class DummyUser {
@@ -143,13 +152,14 @@ class LoanAccountSystem {
   Scanner input = new Scanner(System.in);
   AppUtilities appUtil = new AppUtilities();
   DummyUser dummyUser = new DummyUser();
+  DummyAccount dummyAccount = new DummyAccount();
   def padding = 35,
       midPadding = padding * 2
 
   void run()
   {
     // this.WelcomePage()
-    this.UserDashboard()
+    this.adminAccountPage()
   }
 
   void WelcomePage(int error = 0) {
@@ -159,7 +169,7 @@ class LoanAccountSystem {
     println "\t2] User"
     appUtil.newLn()
     error ? println("\n\tPlease enter valid input...".center(midPadding)) : appUtil.newLn()
-    print "Enter: ".padLeft(padLeft)
+    print "Enter: ".padLeft(padding)
     
     def answer = input.nextLine();
 
@@ -692,14 +702,14 @@ class LoanAccountSystem {
       
       appUtil.newLn()
       print "username: ".padLeft(padding)
-      acc.username = input.next()
+      acc.username = input.nextLine()
       if(acc.username == 'return'){
-        this.AdminAccountPage();
+        this.WelcomePage();
       }
       print "password: ".padLeft(padding)
-      acc.password = input.next()
+      acc.password = input.nextLine()
       if(acc.password == 'return'){
-        this.AdminAccountPage();
+        this.WelcomePage();
       }
 
       // Verify login
@@ -718,30 +728,34 @@ class LoanAccountSystem {
         default: 
           println "error occured in login method...";
       }
-    } while(!loginVerified);
+    } while(!loginVerified) 
+    this.adminAccountPage()
   }
 
 
   void adminAccountPage(int err = 0) {
 
     appUtil.clrscr()
-    println "Welcome to Administrator's Page"
-    println "\t1] Check Databases"
-    println "\t2] Log-out"
-    err ? println("\n\tPlease enter valid input...") : print("\n")
-    print "\tEnter: "
-
-   appUtil.clrscr()
+    println "Welcome to Administrator's Page" .center(midPadding)
+    println "${"1.) ".padLeft(padding -7)}Check Databases"
+    println "${"2.) ".padLeft(padding -7)}Logout"
+  
+    err ? println("Please enter valid input...".center(midPadding)) : print("\n") 
+ 
+    print "Enter: ".padLeft(padding)
+    
+    def answer = input.nextLine();
+  //  appUtil.clrscr()
     // println("you've entered $ans")
-    switch(ans) {
+    switch(answer) {
       case '1':
-        this.Databases()
+        // this.Databases()
         break
       case '2':
         this.adminLoginPage()
         break
       default:
-        this.WelcomePage(1)
+        this.adminAccountPage(1)
     }
   }
 }
