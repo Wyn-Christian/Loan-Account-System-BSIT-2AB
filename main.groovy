@@ -639,13 +639,105 @@ class LoanAccountSystem {
     } while (err)
   }
 
-  void adminLoginPage(int err = 0) {
-    println "\tAdmin Login Page"
-  }
-  void adminAccountPage(int err = 0) {
-    println "\tAdmin Account Page"
+  void adminPage(int err = 0){
+     appUtil.clrscr()
+    println "Admin Login Page"
+    println "\t1] Log-In"
+    println "\t2] Return"
+    err ? println("\n\tPlease enter valid input...") : print("\n")
+    print "\tEnter: "
 
+    def ans = input.nextLine();
+
+    appUtil.clrscr()
+    switch(ans) {
+      case '1':
+        this.adminLoginPage()
+        break
+      case '2':
+        this.WelcomePage()
+        break
+      default:
+        this.adminPage(1)
+    }
+  }
+
+  void adminLoginPage(int err = 0) {
+       def acc = [:]
+
+    def loginVerified = 0,
+        isUserExist = null,
+        isPasswordRight = null;
+    do{
+      appUtil.clrscr()
+      
+      println "Admin Login Page".center(midPadding)
+      appUtil.newLn()
+      println "enter 'return' to return". center(midPadding)
+
+      if(isUserExist == 0) {
+        println "The username you entered doesn't exist".center(midPadding)
+      } else if(isPasswordRight == 0) {
+        println "You've entered the wrong password".center(midPadding)
+      } else {
+        appUtil.newLn()
+      }
+      
+      appUtil.newLn()
+      print "username: ".padLeft(padding)
+      acc.username = input.next()
+      if(acc.username == 'return'){
+        this.AdminAccountPage();
+      }
+      print "password: ".padLeft(padding)
+      acc.password = input.next()
+      if(acc.password == 'return'){
+        this.AdminAccountPage();
+      }
+
+      // Verify login
+      switch (dummyAccount.login(acc.username, acc.password)) {
+        case 1:
+          isUserExist = 0
+          break
+        case 2:
+          isPasswordRight = 0
+          break
+        case 0:
+          isUserExist = 1
+          isPasswordRight = 1
+          loginVerified = 1
+          break
+        default: 
+          println "error occured in login method...";
+      }
+    } while(!loginVerified);
+  }
+
+
+  void adminAccountPage(int err = 0) {
+
+    appUtil.clrscr()
+    println "Welcome to Administrator's Page"
+    println "\t1] Check Databases"
+    println "\t2] Log-out"
+    err ? println("\n\tPlease enter valid input...") : print("\n")
+    print "\tEnter: "
+
+   appUtil.clrscr()
+    // println("you've entered $ans")
+    switch(ans) {
+      case '1':
+        this.Databases()
+        break
+      case '2':
+        this.adminLoginPage()
+        break
+      default:
+        this.WelcomePage(1)
+    }
   }
 }
+
 
 
