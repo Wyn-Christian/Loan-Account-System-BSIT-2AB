@@ -9,6 +9,9 @@ class Main {
 }
 
 class AppUtilities {
+  def padding = 35,
+      midPadding = padding * 2
+  
   public static void clrscr(){
       //Clears Screen in java
       try {
@@ -19,6 +22,10 @@ class AppUtilities {
       } catch (IOException | InterruptedException ex) {}
   }
 
+  void displayWarning(isError, padding, ln = 1, String script = "Please enter valid input..." ) {
+    isError ? println(script.center(padding)) : ln ? this.newLn() : null
+  }
+  
   void newLn() { print "\n"}
 
   boolean isValidDate(String str) {
@@ -81,7 +88,7 @@ class DummyUser {
     user_ID : "1",
     current_borrow_ID : "3001",
     current_loan : 11000,
-    term : 3,
+    remaining_term : 6,
     total_balance : 0,
     total_paid_amount : 0,
     date_created : "2022-06-16 18:00:32",
@@ -103,7 +110,7 @@ class DummyUser {
     ID: "4001",
     user_ID: "1",
     amount : 8500,
-    total_paid : this.dummy_status.total_paid_amount,
+    total_paid : 25500,
     remaining_term : 6,
     borrow_date : "2022-06-17 12:45:03",
     curent_loan_date : "2022-06-17 12:45:03",
@@ -141,71 +148,83 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.TransactPayLoan()
+    this.WelcomePage()
   }
 
-  void WelcomePage(int error = 0) {
-    appUtil.clrscr()
-    println "Welcome Page".center(midPadding)
-    println "${"1.) ".padLeft(padding - 1)}Admin"
-    println "${"2.) ".padLeft(padding - 1)}User"
-    appUtil.newLn()
-    error ? println("\n\tPlease enter valid input...".center(midPadding)) : appUtil.newLn()
-    print "Enter: ".padLeft(padding)
-    
-    def answer = input.nextLine();
+  void WelcomePage() {
+    int error = 0
+    do {
+
+      appUtil.clrscr()
+      println "Welcome Page".center(midPadding)
+      appUtil.newLn()
+      println "${"1.) ".padLeft(padding - 1)}Admin"
+      println "${"2.) ".padLeft(padding - 1)}User"
+      appUtil.newLn()
+      appUtil.displayWarning(error, midPadding)
+      print "Enter: ".padLeft(padding)
+      
+      def answer = input.nextLine();
 
 
-    switch(answer) {
-      case '1':
-        this.adminLoginPage()
-        break
-      case '2':
-        this.UserPage()
-        break
-      default:
-        this.WelcomePage(1)
-    }
+      switch(answer) {
+        case '1':
+          this.AdminLoginPage()
+          break
+        case '2':
+          error = 0
+          this.UserPage()
+          break
+        default:
+          error = 1
+      }
+    } while(error)
   }
   
-  void UserPage(int err = 0) {
-    appUtil.clrscr()
-    println "User Page".center(midPadding)
-    println "${"1.) ".padLeft(padding - 3)}Register"
-    println "${"2.) ".padLeft(padding - 3)}Log in"
-    println "${"3.) ".padLeft(padding - 3)}Return"
-    err ? println("Please enter valid input...").center(midPadding) : appUtil.newLn()
-    print "Enter: ".padLeft(padding)
+  void UserPage() {
+    int err = 0
+    do {
 
-    def ans = input.nextLine();
+      appUtil.clrscr()
+      println "User Page".center(midPadding)
+      appUtil.newLn()
+      println "${"1.) ".padLeft(padding - 3)}Register"
+      println "${"2.) ".padLeft(padding - 3)}Log in"
+      println "${"3.) ".padLeft(padding - 3)}Return"
+      appUtil.newLn()
+      appUtil.displayWarning(err, midPadding)
+      print "Enter: ".padLeft(padding)
 
-    appUtil.clrscr()
-    switch(ans) {
-      case '1':
-        this.UserRegisterPage()
-        break
-      case '2':
-        this.UserLoginPage()
-        break
-      case '3':
-        this.WelcomePage()
-        break
-      default:
-        this.UserPage(1)
-    }
+      def ans = input.nextLine();
+
+      appUtil.clrscr()
+      switch(ans) {
+        case '1':
+          this.UserRegisterPage()
+          break
+        case '2':
+          this.UserLoginPage()
+          break
+        case '3':
+          this.WelcomePage()
+          break
+        default:
+          err = 1
+      }
+    } while (err)
     
   }
 
-  void UserRegisterPage(int err = 0) {
+  void UserRegisterPage() {
     def acc = [:]
 
     appUtil.clrscr();
-    println "User Register Page".center(48)
+    println "User Register Page".center(midPadding)
     appUtil.newLn()
     print "username: ".padLeft(padding)
-    acc.username = input.next()
+    acc.username = input.nextLine()
     print "password: ".padLeft(padding)
-    acc.password = input.next()
+    acc.password = input.nextLine()
 
 
     appUtil.clrscr()
@@ -214,76 +233,65 @@ class LoanAccountSystem {
     println "${"username: ".padLeft(padding)}${acc.username}"
     println "${"password: ".padLeft(padding)}${acc.password.replaceAll('.','*')}"
     print "re-enter password: ".padLeft(padding)
-    acc.repassword = input.next()
+    acc.repassword = input.nextLine() 
 
-    def err1 = 0
+    def err = 0
     do {
 
       appUtil.clrscr()
       println "User Register Page".center(midPadding)
       appUtil.newLn()
       println "Create the account?".center(midPadding)
-      err1 ? appUtil.newLn() : null
-      println("${err1 ? "Please enter valid input..." : "\n"}".center(midPadding))
-      print "Enter[yes/no]: ".padLeft(padding)
+      appUtil.displayWarning(err, midPadding )
+      print "Enter(Y|N): ".padLeft(padding)
 
-      def ans = input.next()
-      switch(ans)
+      def ans = input.nextLine()
+      switch(appUtil.isYesNo(ans))
       {
-        case 'y':
-        case 'Y':
-        case 'yes':
-        case 'Yes':
-        case 'YES':
-          err1 = 0
+        case 1:
           // Pending DB task -----------------------------------
           // Insert new date in user_table
           // proceed to profile information
           this.UserProfileRegisterPage(acc.username);
           break
-        case 'n':
-        case 'N':
-        case 'no':
-        case 'No':
-        case 'NO':
-          err1 = 0
+        case 2:
           // then return to welcome page
           this.WelcomePage();
           break
         default:
-          err1 = 1
+          err = 1
       }
-    } while(err1)
+    } while(err)
   }
 
-  void UserProfileRegisterPage(int err = 0, String username) {
-    def acc = [username:username]
-
-    appUtil.clrscr();
-    println "User Register Profile Page".center(midPadding)
-    appUtil.newLn()
-    print "firstname: ".padLeft(padding)
-    acc.firstname = input.nextLine()
-    print "lastname: ".padLeft(padding)
-    acc.lastname = input.nextLine()
-
-    def errAnswer = 0
-    def errDate = 0
-    def errGender = 0
-    acc.birthday = null
-    acc.gender = null
+  void UserProfileRegisterPage(String username) {
+    def acc = [username:username],
+        errAnswer = 0,
+        errDate = 0,
+        errGender = 0
 
     do {
       appUtil.clrscr();
       println "User Register Profile Page".center(midPadding)
       appUtil.newLn()
-      println "${"firstname: ".padLeft(padding)}${acc.firstname}"
-      println "${"lastname: ".padLeft(padding)}${acc.lastname}"
+
+      if(acc.firstname == null) {
+        print "first name: ".padLeft(padding)
+        acc.firstname = input.nextLine()
+      } else {
+        println "${"first name: ".padLeft(padding)}${acc.firstname}"
+      }
+
+      if(acc.lastname == null) {
+        print "last name: ".padLeft(padding)
+        acc.lastname = input.nextLine()
+      }else {
+        println "${"last name: ".padLeft(padding)}${acc.lastname}"
+
+      }
 
       // Get birthday input with valid date format
-      if(errDate) {
-        println "Please enter valid format of date...".center(midPadding)
-      }
+      appUtil.displayWarning(errDate, "Please enter valid format of date...", midPadding)
 
       
       if(acc.birthday == null) {
@@ -295,17 +303,15 @@ class LoanAccountSystem {
         } else {
           errDate = 1
           acc.birthday = null
-          continue;
         }
+          continue
       } else {
         println "${"birthday(YYYY-MM-DD): ".padLeft(padding)}${acc.birthday}"
       } 
 
       // Get gender input with valid format (m|M|f|F)
       if(acc.gender == null) {
-        if(errGender) {
-          println "Please enter valid format of gender...".padLeft(padding)
-        }
+        appUtil.displayWarning(errGender,"Please enter valid format of gender...", midPadding)
         print "gender(M/F): ".padLeft(padding)
         acc.gender = input.nextLine()
 
@@ -314,25 +320,19 @@ class LoanAccountSystem {
         } else {
           errGender = 1
           acc.gender = null
-          continue;
         }
+          continue
       } else {
         println "${"gender: ".padLeft(padding)}${acc.gender}"
       }
 
       appUtil.newLn()
-      if(errAnswer) {
-          println "Please enter valid answer...".padLeft(padding)
-      }
+      appUtil.displayWarning(errAnswer, midPadding)
       print "create profile(Y|N): ".padLeft(padding)
       def ans = input.nextLine()
-      switch(ans)
+      switch(appUtil.isYesNo(ans))
       {
-        case 'y':
-        case 'Y':
-        case 'yes':
-        case 'Yes':
-        case 'YES':
+        case 1:
           errAnswer = 0
           // pending DB task ----------------------------------------------
           // Update user's data in user_tbl
@@ -340,11 +340,7 @@ class LoanAccountSystem {
           // then return to user page
           this.UserPage();
           break
-        case 'n':
-        case 'N':
-        case 'no':
-        case 'No':
-        case 'NO':
+        case 2:
           errAnswer = 0
           // return to user page
           this.UserPage();
@@ -356,8 +352,9 @@ class LoanAccountSystem {
 
   }
 
-  void UserLoginPage(int err = 0) {
+  void UserLoginPage() {
     def acc = [:]
+    int err = 0
 
     def loginVerified = 0,
         isUserExist = null,
@@ -379,12 +376,12 @@ class LoanAccountSystem {
       
       appUtil.newLn()
       print "username: ".padLeft(padding)
-      acc.username = input.next()
+      acc.username = input.nextLine()
       if(acc.username == 'return'){
         this.UserPage();
       }
       print "password: ".padLeft(padding)
-      acc.password = input.next()
+      acc.password = input.nextLine()
       if(acc.password == 'return'){
         this.UserPage();
       }
@@ -395,24 +392,28 @@ class LoanAccountSystem {
           isUserExist = 0
           break
         case 2:
+          isUserExist = 1
           isPasswordRight = 0
           break
         case 0:
           isUserExist = 1
           isPasswordRight = 1
           loginVerified = 1
+          // login user (get the current status)
+          // proceed to dashboard
+          this.UserDashboard()
           break
         default: 
+           err = 1
           println "error occured in login method...";
       }
-    } while(!loginVerified);
+    } while(!loginVerified || err);
 
-    // proceed to dashboard
-    
   }
 
-  void UserDashboard(int err = 0){
-    def answer = null;
+  void UserDashboard(){
+    def answer = null
+    int err = 0
 
     do {
       appUtil.clrscr()
@@ -426,11 +427,7 @@ class LoanAccountSystem {
       println "${"4.)".padLeft(padding - 5)} Log out"
       
       appUtil.newLn()
-      if(err) {
-        println "Please enter valid input".center(midPadding)
-      } else {
-        appUtil.newLn()
-      }
+      appUtil.displayWarning(err, midPadding)
 
       print "Enter: ".padLeft(padding);
       answer = input.nextLine()
@@ -442,6 +439,7 @@ class LoanAccountSystem {
           break
         case '2':
           // Pay Loan
+          this.TransactPayLoan()
           break
         case '3':
           // Account Status
@@ -449,6 +447,7 @@ class LoanAccountSystem {
           break
         case '4':
           // Log out
+          this.WelcomePage()
           break
         default:
           // error input
@@ -458,7 +457,7 @@ class LoanAccountSystem {
     } while (err)
   }
 
-  void TransanctBorrow(int err = 0) {
+  void TransanctBorrow() {
     def amount = "100",
         terms = '3',
         answer = null,
@@ -466,13 +465,13 @@ class LoanAccountSystem {
         errAmount = 0,
         errTerms = 0,
         errAnswer = 0
-
+      int err = 0
     do {
       appUtil.clrscr()
       println "BORROW DASHBOARD".center(midPadding)
       appUtil.newLn()
 
-      errAmount ? println("Please enter valid input...".center(midPadding)) : appUtil.newLn()
+      appUtil.displayWarning(errAmount, midPadding, 0)
       if(amount == null){
         print "Enter amount: ".padLeft(padding)
         amount = input.nextLine()
@@ -484,14 +483,14 @@ class LoanAccountSystem {
       if(!appUtil.isValidAmount(amount)){
         errAmount = 1
         amount = null
-        continue
+        continuefig
       } else if (!isDone[0]){
         isDone[0] = 1
         errAmount = 0
         continue
       }
       
-      errTerms ? println("Please enter valid input...".center(midPadding)) : null
+      appUtil.displayWarning(errTerms, midPadding, 0)
       if(terms == null){
         appUtil.newLn()
         print "Payment Month(3,6,9,12): ".padLeft(padding)
@@ -517,7 +516,7 @@ class LoanAccountSystem {
         continue
       }
 
-      errAnswer ? println("Please enter valid input...".center(midPadding)) : null
+      appUtil.displayWarning(errAnswer, midPadding)
       if(answer == null) {
         appUtil.newLn()
         print "Are you sure?(Y|N): ".padLeft(padding)
@@ -532,7 +531,7 @@ class LoanAccountSystem {
           // proceed to terms and condition
           this.TermsAndConditions()
           // currentUser.borrowTransaction()
-          this.RecieptTransaction()
+          this.RecieptBorrowTransaction()
           break
         case 2:
           // return to dashboard
@@ -545,17 +544,10 @@ class LoanAccountSystem {
         default:
           println "error"
       }
-
-
-      
     } while(errAmount || errTerms || errAnswer)
-    
-      println "end of line"
-      input.nextLine()
-    
   }
 
-  void RecieptTransaction() {
+  void RecieptBorrowTransaction() {
     def err = 0;
     do {
       appUtil.clrscr()
@@ -610,16 +602,94 @@ class LoanAccountSystem {
   }
 
   void TransactPayLoan(){
-    // Lets do this taena
+    def errAmount = 0,
+        amount = null,
+        answer = null,
+        errAnswer = null,
+        isDone = 0
+    do {
+    appUtil.clrscr()
+    
     println "PAYMENT SECTION".center(midPadding)
     appUtil.newLn()
-    println "${"Loan Amount: ".padLeft(padding)}${dummyUser.dummy_status.total_balance}"
-    println "${"Current Term: ".padLeft(padding)}${dummyUser.dummy_status.term}"
-    println "${"Interest: ".padLeft(padding)}${dummyUser.dummy_borrow.term}"
+    println "${"Loan Amount: ".padLeft(padding)}${dummyUser.dummy_borrow.amount}"
+    println "${"Term: ".padLeft(padding)}${dummyUser.dummy_borrow.term}"
+    println "${"Interest: ".padLeft(padding)}${(int)(dummyUser.dummy_borrow.interest * 100)}%"
+    isDone || appUtil.newLn()
+    
+    errAmount ? println("Please enter valid input...".center(midPadding)) : appUtil.newLn()
+      if(amount == null){
+        print "Enter amount: ".padLeft(padding)
+        amount = input.nextLine()
+      } else {
+        print "Enter amount: ".padLeft(padding)
+        print "$amount\n"
+      }
 
+      if(!appUtil.isValidAmount(amount)){
+        errAmount = 1
+        amount = null
+        continue
+      } else if (!isDone){
+        isDone = 1
+        errAmount = 0
+        continue
+      }
+
+      errAnswer ? println("Please enter valid input...".center(midPadding)) : null
+      appUtil.newLn()
+      print "Are you sure?(Y|N): ".padLeft(padding)
+
+      answer = input.nextLine()
+      switch(appUtil.isYesNo(answer)) {
+        case 1:
+          // Proceed Receipt Payment
+          // currentUser.payLoanTransaction()
+          this.RecieptPayLoanTransaction()
+          break
+        case 2:
+          // return to dashboard
+          this.UserDashboard()
+          break
+        case 0:
+          errAnswer = 1
+          answer = null
+          continue
+        default:
+          println "error"
+      }
+
+    } while (errAmount || errAnswer)
+    
   }
 
-  void UserAccountPage(int err = 0) {
+  void RecieptPayLoanTransaction() {
+    def err = 0;
+    do {
+      appUtil.clrscr()
+      println "RECEIPT PAYMENT".center(midPadding)
+      appUtil.newLn()
+
+      println "${"Account: ".padLeft(padding)}${dummyUser.dummy_profile.firstname} ${dummyUser.dummy_profile.lastname}"
+      println "${"Amount Paid: ".padLeft(padding)}${dummyUser.dummy_pay_loan.amount}"
+      println "${"Total Paid: ".padLeft(padding)}${dummyUser.dummy_pay_loan.total_paid} months"
+      println "${"Remaining Term: ".padLeft(padding)}${dummyUser.dummy_pay_loan.remaining_term * 100}%"
+      println "${"Loan Date: ".padLeft(padding)}${dummyUser.dummy_pay_loan.borrow_date}"
+      println "${"Payment Date: ".padLeft(padding)}${dummyUser.dummy_pay_loan.curent_loan_date}"
+
+      appUtil.newLn()
+      err ? println("Please enter valid input...".center(midPadding)) : appUtil.newLn()
+      print "Enter 'y' to proceed to dashboard: ".padLeft(padding)
+      if(appUtil.isYesNo(input.nextLine()) == 1){
+        this.UserDashboard()
+      } else {
+        err = 1;
+      }
+    } while (err)
+  }
+  
+  void UserAccountPage() {
+    int err = 0
     do {
       appUtil.clrscr()
       
@@ -629,11 +699,11 @@ class LoanAccountSystem {
       println "${"Loan to Pay: ".padLeft(padding)}${dummyUser.dummy_status.current_loan}"
       println "${"Paid Amount: ".padLeft(padding)}${dummyUser.dummy_status.total_paid_amount}"
       println "${"Outstanding Balance: ".padLeft(padding)}${dummyUser.dummy_status.total_balance}"
-      println "${"Remainin Term: ".padLeft(padding)}${dummyUser.dummy_status.term} months"
+      println "${"Remaining Term: ".padLeft(padding)}${dummyUser.dummy_status.remaining_term} months"
 
-      appUtil.newLn()      
-      err ? println ("Please enter valid input...".center(midPadding)) : appUtil.newLn()
-      
+      appUtil.newLn()
+      appUtil.displayWarning(err, midPadding)  
+
       print "Enter 'Y' to return: ".padLeft(padding)
       def answer = input.nextLine()
       
@@ -648,14 +718,14 @@ class LoanAccountSystem {
   }
 
   // Still in progress
-  void adminLoginPage(int err = 0) {
+  void AdminLoginPage() {
     
-    println "\tAdmin Login Page"
+    println "Admin Login Page".center(midPadding)
   }
 
   // Still in progress
-  void adminAccountPage(int err = 0) {
-    println "\tAdmin Account Page"
+  void adminAccountPage() {
+    println "Admin Account Page".center(midPadding)
 
   }
 }
