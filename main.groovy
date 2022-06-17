@@ -1,6 +1,7 @@
 import java.sql.*; 
 import groovy.sql.Sql 
 
+// This is the main program that starts the application
 class Main {
   static void main(String[] args) {
     LoanAccountSystem app = new LoanAccountSystem();
@@ -8,6 +9,7 @@ class Main {
   }
 }
 
+// A class that consists of utilities for CLI
 class CLIUtilities {
   Scanner read = new Scanner(System.in);
   def padding = 35,
@@ -26,7 +28,7 @@ class CLIUtilities {
   void title(String str){
       this.clrscr()
       println str.center(midPadding)
-      this.newLn() 
+      this.break_line() 
   }
 
   void center(String str){
@@ -37,7 +39,7 @@ class CLIUtilities {
     str.eachWithIndex {val,i  -> 
       println "${i + 1}.) ".padLeft(padding - pad) + val
     }
-    this.newLn()
+    this.break_line()
   }
 
   String input(String str = "Enter"){
@@ -52,7 +54,7 @@ class CLIUtilities {
 
   void display_data(Object... str){
     str.eachWithIndex {val ,i -> print "${i % 2 ? val : ("\n" + val.padLeft(padding) + ": ")}"}
-    this.newLn()
+    this.break_line()
   }
 
   void link (String choice, Object... page) {
@@ -76,16 +78,15 @@ class CLIUtilities {
   }
 
   void display_warning_if(isError,  ln = 1, String errScript = "Please enter valid input..." ) {
-    isError ? println(errScript.center(midPadding)) : ln ? this.newLn() : null
+    isError ? println(errScript.center(midPadding)) : ln ? this.break_line() : null
   }
   
-  void newLn() { print "\n"}
+  void break_line() { print "\n"}
 
   boolean isValidDate(String str) {
     return str =~ /^\d{4}[\-|\s|\/](0[1-9]|1[012])[\-|\s|\/](0[1-9]|[12][0-9]|3[01])$/
           ? true
           : false
-
   }
 
   boolean isValidGender(String str) {
@@ -123,10 +124,12 @@ class CLIUtilities {
   }
 }
 
+// A class that consists of SQL methods for back end
 class DBUtilities {
   // Still in progress
 }
 
+// Just dummy data for front end
 class DummyUser {
   def dummy_profile = [
       ID: '1',
@@ -192,6 +195,7 @@ class DummyUser {
   
 
 }
+
 class DummyAdmin {
   def profile = [
     admin: "johnDoe",
@@ -207,6 +211,8 @@ class DummyAdmin {
     }
   }
 }
+
+// The main application of the system
 class LoanAccountSystem {
   CLIUtilities cli = new CLIUtilities();
   DummyUser dummyUser = new DummyUser();
@@ -230,8 +236,8 @@ class LoanAccountSystem {
       cli.link  answer, 
                 this.&AdminLoginPage, 
                 this.&UserPage
-      isError = 1
 
+      isError = 1
     } while(isError)
   }
   
@@ -356,7 +362,7 @@ class LoanAccountSystem {
         cli.display_input "gender", acc.gender
       }
 
-      cli.newLn()
+      cli.break_line()
       cli.display_warning_if errAnswer
       def ans = cli.input "create profile(Y|N)"
 
@@ -399,10 +405,10 @@ class LoanAccountSystem {
       } else if(isPasswordRight == 0) {
         cli.center "You've entered the wrong password" 
       } else {
-        cli.newLn()
+        cli.break_line()
       }
       
-      cli.newLn()
+      cli.break_line()
       acc.username = cli.input "username"
       if(acc.username == 'return'){
         this.UserPage();
@@ -515,7 +521,7 @@ class LoanAccountSystem {
 
       cli.display_warning_if isErrAnswer
       if(!answer) {
-        cli.newLn()
+        cli.break_line()
         answer = cli.input "Are you sure?(Y|N)"
       } else  {
         cli.display_input "Are you sure?(Y|N)", answer
@@ -582,7 +588,7 @@ class LoanAccountSystem {
                     "the Deed of Trust, Security Documents, and such other collateral as the Company may need.",
                     "According to the conditions of the Note, interest will accrue and principal and interest will be due."
       
-      cli.newLn()
+      cli.break_line()
       answer = cli.input "I have agreed to the terms and conditions(y)"
       if(cli.isYesNo(answer) == 1) {
         errAnswer = 0
@@ -625,7 +631,7 @@ class LoanAccountSystem {
         continue
       }
 
-      // cli.newLn()
+      // cli.break_line()
       cli.display_warning_if isErrAnswer
       answer = cli.input "Are you sure?(Y|N)"
 
@@ -664,7 +670,7 @@ class LoanAccountSystem {
                        "Loan Date",         "${dummyUser.dummy_pay_loan.curent_loan_date}",
                        "Payment Date",      "${dummyUser.dummy_pay_loan.borrow_date}"
 
-      cli.newLn()
+      cli.break_line()
       cli.display_warning_if isErr
       def answer = cli.input "Enter 'y' to proceed to dashboard"
       if(cli.isYesNo(answer) == 1) {
@@ -741,7 +747,7 @@ class LoanAccountSystem {
       } else if(isPasswordRight == 0) {
         cli.center "You've entered the wrong password" 
       } else {
-        cli.newLn()
+        cli.break_line()
       }
       
       acc.admin = cli.input "Admin"
