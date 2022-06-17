@@ -66,6 +66,13 @@ class DBUtilities {
   // Still in progress
 }
 
+class DummyAccount {
+  def dummy_forAdmin = [
+      username : "Johnny",
+      password : "4321",
+  ];
+}
+
 class DummyUser {
   def dummy_profile = [
       ID: '1',
@@ -159,7 +166,7 @@ class LoanAccountSystem {
 
     switch(answer) {
       case '1':
-        this.adminLoginPage()
+        this.adminPage()
         break
       case '2':
         this.UserPage()
