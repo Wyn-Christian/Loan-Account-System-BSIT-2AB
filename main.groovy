@@ -63,7 +63,7 @@ class AppUtilities {
 }
 
 class DBUtilities {
-  // Still on process
+  // Still in progress
 }
 
 class DummyUser {
@@ -147,16 +147,16 @@ class LoanAccountSystem {
 
   void WelcomePage(int error = 0) {
     appUtil.clrscr()
-    println "\tWelcome Page"
+    println "Welcome Page".center(midPadding)
     println "\n\t1] Admin"
     println "\t2] User"
-    error ? println("\n\tPlease enter valid input...") : print("\n")
-    print "\tEnter: "
+    appUtil.newLn()
+    error ? println("\n\tPlease enter valid input...".center(midPadding)) : appUtil.newLn()
+    print "Enter: ".padLeft(padLeft)
     
-    def answer = input.next();
+    def answer = input.nextLine();
 
 
-    appUtil.clrscr()
     switch(answer) {
       case '1':
         this.adminLoginPage()
