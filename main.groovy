@@ -79,7 +79,7 @@ class DummyUser {
   def dummy_status = [
     ID : "1001",
     user_ID : "1",
-    current_amount_borrowed : 10000,
+    current_borrow_ID : "3001",
     current_loan : 11000,
     term : 3,
     total_balance : 0,
@@ -139,20 +139,19 @@ class LoanAccountSystem {
   def padding = 35,
       midPadding = padding * 2
 
-  void run()
-  {
-    // this.WelcomePage()
-    this.UserDashboard()
+  void run() {
+    // change this to open directly the page
+    this.TransactPayLoan()
   }
 
   void WelcomePage(int error = 0) {
     appUtil.clrscr()
     println "Welcome Page".center(midPadding)
-    println "\n\t1] Admin"
-    println "\t2] User"
+    println "${"1.) ".padLeft(padding - 1)}Admin"
+    println "${"2.) ".padLeft(padding - 1)}User"
     appUtil.newLn()
     error ? println("\n\tPlease enter valid input...".center(midPadding)) : appUtil.newLn()
-    print "Enter: ".padLeft(padLeft)
+    print "Enter: ".padLeft(padding)
     
     def answer = input.nextLine();
 
@@ -171,17 +170,16 @@ class LoanAccountSystem {
   
   void UserPage(int err = 0) {
     appUtil.clrscr()
-    println "User Page"
-    println "\n\t1] Register"
-    println "\t2] Log-In"
-    println "\t3] Return"
-    err ? println("\n\tPlease enter valid input...") : print("\n")
-    print "\tEnter: "
+    println "User Page".center(midPadding)
+    println "${"1.) ".padLeft(padding - 3)}Register"
+    println "${"2.) ".padLeft(padding - 3)}Log in"
+    println "${"3.) ".padLeft(padding - 3)}Return"
+    err ? println("Please enter valid input...").center(midPadding) : appUtil.newLn()
+    print "Enter: ".padLeft(padding)
 
     def ans = input.nextLine();
 
     appUtil.clrscr()
-    // println("you've entered $ans")
     switch(ans) {
       case '1':
         this.UserRegisterPage()
@@ -611,13 +609,23 @@ class LoanAccountSystem {
     return;
   }
 
+  void TransactPayLoan(){
+    // Lets do this taena
+    println "PAYMENT SECTION".center(midPadding)
+    appUtil.newLn()
+    println "${"Loan Amount: ".padLeft(padding)}${dummyUser.dummy_status.total_balance}"
+    println "${"Current Term: ".padLeft(padding)}${dummyUser.dummy_status.term}"
+    println "${"Interest: ".padLeft(padding)}${dummyUser.dummy_borrow.term}"
+
+  }
+
   void UserAccountPage(int err = 0) {
     do {
       appUtil.clrscr()
       
       println "ACCOUNT STATUS".center(midPadding)
       appUtil.newLn()
-      println "${"Current Amount Borrowed: ".padLeft(padding)}${dummyUser.dummy_status.current_amount_borrowed}"
+      println "${"Current Amount Borrowed: ".padLeft(padding)}${dummyUser.dummy_borrow.amount}"
       println "${"Loan to Pay: ".padLeft(padding)}${dummyUser.dummy_status.current_loan}"
       println "${"Paid Amount: ".padLeft(padding)}${dummyUser.dummy_status.total_paid_amount}"
       println "${"Outstanding Balance: ".padLeft(padding)}${dummyUser.dummy_status.total_balance}"
@@ -639,9 +647,13 @@ class LoanAccountSystem {
     } while (err)
   }
 
+  // Still in progress
   void adminLoginPage(int err = 0) {
+    
     println "\tAdmin Login Page"
   }
+
+  // Still in progress
   void adminAccountPage(int err = 0) {
     println "\tAdmin Account Page"
 
