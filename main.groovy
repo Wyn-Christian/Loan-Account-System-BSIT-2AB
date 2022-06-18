@@ -132,23 +132,23 @@ class DBUtilities {
 // Just dummy data for front end
 class DummyUser {
   def dummy_profile = [
-      ID: '1',
+            ID : '1',
       username : "johnDoe",
       firstname : "John",
-      lastname : "Doe",
-      gender : "m",
+      lastname :  "Doe",
+      gender :    "m",
       password : "1234",
       birthday : "2001-03-03"
   ];
   def dummy_status = [
-    ID : "1001",
-    user_ID : "1",
+            ID :  "1001",
+    user_ID :      "1",
     current_borrow_ID : "3001",
-    current_loan : 11000,
-    remaining_term : 6,
-    total_balance : 0,
-    total_paid_amount : 0,
-    date_created : "2022-06-16 18:00:32",
+    current_loan : 51000,
+    remaining_term : 2,
+    total_balance : 28900,
+    total_paid_amount : 34000,
+    date_created : "2022-01-16 18:00:32",
     date_updated : "2022-06-16 18:00:32"
   ]
   def dummy_borrow = [
@@ -159,19 +159,18 @@ class DummyUser {
     interest : 0.02,
     total_interest : 1000,
     principal_amount : 51000 /*getPrincipalAmount(amount, interest)*/,
-    date_created : "2022-06-17 12:45:03",
+    date_created : "2022-02-17 12:45:03",
     monthly_payment : 8500 /* getMonthlyPayment(principal_amount, term)*/
 
   ]
   def dummy_pay_loan = [
     ID: "4001",
     user_ID: "1",
+    borrow_ID: "3001",
     amount : 8500,
-    total_paid : 25500,
-    remaining_term : 6,
-    borrow_date : "2022-06-17 12:45:03",
-    curent_loan_date : "2022-06-17 12:45:03",
+    curent_loan_date : "2022-06-16 18:00:32",
   ]
+
   // login
   int login(username, password) {
     if(dummy_profile.username != username){
@@ -183,6 +182,10 @@ class DummyUser {
     }
   }
   // logout
+  void logout(){
+    // empty out the maps
+  }
+
   // create account
   // update account
   // read current account
@@ -220,11 +223,13 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.AdminAccountPage()
+    this.UserRegisterPage()
   }
 
   void WelcomePage() {
-    int isError = 0
+    def isError = 0,
+        answer = null,
+        result = null
     do {
 
       cli.title "Welcome Page"
@@ -232,13 +237,13 @@ class LoanAccountSystem {
 
       cli.display_warning_if isError
       def answer = cli.input()
-
+      
       cli.link  answer, 
                 this.&AdminLoginPage, 
                 this.&UserPage
 
       isError = 1
-    } while(isError)
+    } while(true)
   }
   
   void UserPage() {
@@ -246,12 +251,15 @@ class LoanAccountSystem {
     do {
       cli.title "User Page"
       cli.options 3, "Register", "Log in", "Return"
+
       cli.display_warning_if isError
       def answer = cli.input()
+
       cli.link  answer, 
                 this.&UserRegisterPage, 
                 this.&UserLoginPage,
                 this.&WelcomePage
+                
       isError = 1
     } while (isError)
   }
@@ -264,24 +272,19 @@ class LoanAccountSystem {
 
     do {
       cli.title "User Register Page"
-
-      if(!acc.username){
+      
+      if(!acc.username) 
         acc.username = cli.input "username"
-      } else {
+      else  
         cli.display_input "username", acc.username
-      }
 
-      if(!acc.password){
-        acc.password = cli.input("password")
+      if(!acc.password) {
+        acc.password = cli.input "password"
         continue
-      } else {
-        cli.display_input "password", acc.password.replaceAll('.','*')
-      }
+      } else              
+          cli.display_input "password", acc.password.replaceAll('.','*')
 
-      if (!isDone){
-        acc.repassword = cli.input "re-enter password"
-      }
-
+      if (!isDone) acc.repassword = cli.input "re-enter password"
 
       // Verify password and username -----------------------------
       isDone = 1
@@ -370,7 +373,7 @@ class LoanAccountSystem {
       {
         case 1:
           errAnswer = 0
-          // pending DB task ----------------------------------------------
+          // pending DB task ------------------------------------------------------------------------------
           // Update user's data in user_tbl
           // while displaying "creating account"
           // then return to user page
@@ -420,7 +423,7 @@ class LoanAccountSystem {
       }
 
       // Verify login
-      // db task ---------------------------------------
+      // DB task -----------------------------------------------------------------------
       switch (dummyUser.login(acc.username, acc.password)) {
         case 1:
           isUserExist = 0
@@ -433,7 +436,7 @@ class LoanAccountSystem {
           isUserExist = 1
           isPasswordRight = 1
           loginVerified = 1
-          // DB TASK ----------------------------------
+          // DB TASK ------------------------------------------------------------------
           // login user (get the current status)
           // proceed to dashboard
           this.UserDashboard()
@@ -520,12 +523,7 @@ class LoanAccountSystem {
       }
 
       cli.display_warning_if isErrAnswer
-      if(!answer) {
-        cli.break_line()
-        answer = cli.input "Are you sure?(Y|N)"
-      } else  {
-        cli.display_input "Are you sure?(Y|N)", answer
-      }
+      answer = cli.input "Are you sure?(Y|N)"
 
       switch(cli.isYesNo(answer)) {
         case 1:
@@ -572,8 +570,8 @@ class LoanAccountSystem {
         isErr = 0;
         this.UserDashboard()
       } 
+
       isErr = 1;
-      
     } while (isErr)
   }
 
@@ -665,14 +663,16 @@ class LoanAccountSystem {
 
       cli.display_data "Account",           "${dummyUser.dummy_profile.firstname} ${dummyUser.dummy_profile.lastname}",
                        "Amount Paid",       "${dummyUser.dummy_pay_loan.amount}",
-                       "Total Paid",        "${dummyUser.dummy_pay_loan.total_paid}",
-                       "Remaining Term",    "${dummyUser.dummy_pay_loan.remaining_term} months",
-                       "Loan Date",         "${dummyUser.dummy_pay_loan.curent_loan_date}",
-                       "Payment Date",      "${dummyUser.dummy_pay_loan.borrow_date}"
+                       "Total Paid",        "${dummyUser.dummy_status.total_paid_amount}",
+                       "Remaining Term",    "${dummyUser.dummy_status.remaining_term} months",
+                       "Loan Date",         "${dummyUser.dummy_borrow.date_created}",
+                       "Payment Date",      "${dummyUser.dummy_pay_loan.curent_loan_date}"
+
 
       cli.break_line()
       cli.display_warning_if isErr
       def answer = cli.input "Enter 'y' to proceed to dashboard"
+
       if(cli.isYesNo(answer) == 1) {
         isErr = 0
         this.UserDashboard()
