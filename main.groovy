@@ -2,6 +2,7 @@ import groovy.sql.Sql
 import java.sql.*
 import java.text.NumberFormat;
 import java.util.Locale;
+import java.text.DecimalFormat 
 
 // This is the main program that starts the application
 class Main {
@@ -174,6 +175,8 @@ class CLIUtilities {
         if(result) {
           if (input_type == 'repassword') 
             user.input.repassword = true
+          else if (input_type == 'birthday') 
+            user.input.birthday = answer.replaceAll(' ', '-')
           else 
             user.input[input_type] = answer
         } 
@@ -208,7 +211,7 @@ class CLIUtilities {
     switch(type){
       case "borrow":
         if(user.status.current_borrow_ID)
-          errPage("Oops..", "Sorry, please pay your exist loan first...")
+          errPage("Oops..", "Sorry, please pay your existing loan first...")
         break
       case "pay loan":
         if(!user.status.current_borrow_ID)
@@ -222,6 +225,7 @@ class CLIUtilities {
         return
     }
   }
+  void pause(){read.nextLine()}
 
   int isYesNo(String str) {
     switch(str){
@@ -273,6 +277,7 @@ class CLIUtilities {
 
 
 class UserAccount {
+  DBUtilities DB = new DBUtilities()
   def has_error = []
   def has_no_error = null
 
@@ -284,15 +289,6 @@ class UserAccount {
     birthday    : null,
     gender      : null,
     repassword  : false
-  ]
-
-  def database = [
-    username  : 'wynter',
-    password  : 'Wyn1234!',
-    firstname : 'Wyn Christian',
-    lastname  : 'Rebanal',
-    birthday  : '2001-03-03',
-    gender    : 'm'
   ]
 
   def profile = [
@@ -307,7 +303,7 @@ class UserAccount {
   def status = [
     ID                : "1001",
     user_ID           : "1",
-    current_borrow_ID : null,
+    current_borrow_ID : "3001",
     current_loan      : 51000,
     remaining_term    : 2,
     total_balance     : 28900,
@@ -326,6 +322,7 @@ class UserAccount {
     date_created      : "2022-02-17 12:45:03",
     monthly_payment   : 8500 /* getMonthlyPayment(principal_amount, term)*/
   ]
+
   def latest_payment = [
     ID                : "4001",
     borrow_ID         : "3001",
@@ -365,21 +362,31 @@ class UserAccount {
     ],
   ]
 
-  void registerNewUser() {
+  void registerInput() {
     // CREATE user ------------------------------------------------
-    this.database = this.input
+    DB.createUser(this.input)
+    // GET the ID of the new user ------------------------------------------------
+    def ID = DB.getUserID(this.input.username, this.input.password)
+    // CREATE user status ------------------------------------------------
+    DB.createUserStatus(ID)
+
     this.emptyInput()
   }
-  def login() {
 
-    if(this.database.username != this.input.username) {
+  def login() {
+    def userID = DB.getIDByUsername(this.input.username);
+    if(userID == 0) {
       this.has_error = ['username', 3]
       return false   
-    }else if (this.database.password != this.input.password){
+    }else if (DB.getPasswordByID(userID) != this.input.password){
       this.has_error = ['password', 2]
       return false
     }
+
     this.emptyInput()
+
+    this.profile = DB.getProfileByID(userID)
+    this.status = DB.getStatusByID(userID)
     return true
   }
 
@@ -402,8 +409,9 @@ class UserAccount {
       firstname : null,
       lastname  : null,
       birthday  : null,
-      gender    : null,
+      gender    : null
     ]
+
     this.status = [
       ID                : null,
       user_ID           : null,
@@ -426,6 +434,7 @@ class UserAccount {
       date_created      : null,
       monthly_payment   : null,
     ]
+
     this.latest_payment = [
       ID                : null,
       borrow_ID         : null,
@@ -434,18 +443,56 @@ class UserAccount {
     ]
 
   }
+
+  void transactBorrow(){
+    DB.createLoan(this.profile, this.input)
+    this.current_borrow = DB.getCurrentBorrowByUserID(this.profile.ID)
+
+    this.current_borrow.interest = this.getInterestRate(this.current_borrow.term)
+    this.current_borrow.principal_amount = this.getPrincipalAmount(this.current_borrow.amount, this.current_borrow.interest)
+    this.current_borrow.total_interest = this.current_borrow.principal_amount - this.current_borrow.amount
+    this.current_borrow.monthly_payment = this.getMonthlyPayment((double)this.current_borrow.principal_amount, this.current_borrow.term)
+
+    DB.updateStatusBorrow(this.current_borrow);
+    this.status = DB.getStatusByID(this.profile.ID)
+  }
+  
+  double getInterestRate(term) {
+    switch(term) {
+      case '3':
+        return 0.015
+      case '6':
+        return 0.02
+      case '9':
+        return 0.025
+      case '12':
+        return 0.036
+      default:
+        return 0
+    }
+  }
+
+  double getPrincipalAmount(amount, interest) {
+    return (amount * interest) + amount
+  }
+
+  double getMonthlyPayment(principal, term) {
+    term = Double.parseDouble(term)
+    return principal / term
+  }
+
   
   def inputValidator(type, str) {
      def validator = [
-      username: this.&isValidUsername,
-      password: this.&isValidPassword,
-      repassword: this.&validatePassword,
-      firstname: this.&isValidName,
-      lastname: this.&isValidName,
-      birthday: this.&isValidDate,
-      gender: this.&isValidGender,
-      amount: this.&isValidAmount,
-      term: this.&isValidTerm
+      username    : this.&isValidUsername,
+      password    : this.&isValidPassword,
+      repassword  : this.&validatePassword,
+      firstname   : this.&isValidName,
+      lastname    : this.&isValidName,
+      birthday    : this.&isValidDate,
+      gender      : this.&isValidGender,
+      amount      : this.&isValidAmount,
+      term        : this.&isValidTerm
     ]
 
     this.has_no_error = validator[type](str)
@@ -474,13 +521,14 @@ class UserAccount {
           ? true
           : 1
   }
+
   def isValidAmount(String str) {
      str =~ /\b\d+\b/ ? true : 1
   }
 
   def isValidUsername(String str) {
-  // https://mkyong.com/regular-expressions/how-to-validate-username-with-regular-expression/
-  //Username requirements
+    // https://mkyong.com/regular-expressions/how-to-validate-username-with-regular-expression/
+    //Username requirements
      str =~ /^[a-zA-Z0-9]([._-](?![._-])|[a-zA-Z0-9]){3,18}[a-zA-Z0-9]$/ ? true : 2
   }
 
@@ -497,12 +545,15 @@ class UserAccount {
     // https://mkyong.com/regular-expressions/how-to-validate-password-with-regular-expression/
     str =~ /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()\-[{}]:;',?\/*~$^+=<>]).{8,20}$/ ? true : 1
   }
+
   def isValidName(String str) {
     str =~ /^(?i)[a-z]([- ',.a-z]{0,23}[a-z])?$/ ? true : 1
   }
+
   def isNum(String str){
      str =~ /\b\d+\b/ ? true : 1
   }
+
   def isValidTerm(String str){
     if(str =~ /^\d{1,2}$/) {
       switch(str) {
@@ -525,6 +576,173 @@ class UserAccount {
 // A class that consists of SQL methods for back end
 class DBUtilities {
   // Still in progress
+  def sql;
+
+  DBUtilities(){
+    this.connect()
+  }
+  
+  void connect() {
+    sql = Sql.newInstance('jdbc:mysql://localhost:8080/testdb', 
+    'root', '1234', 'com.mysql.cj.jdbc.Driver')
+
+    sql.connection.autoCommit = false
+  }
+  
+  // CREATE ------------------------------------------------------------------------------------------------------------------------
+  // Insert new user
+	void createUser(inputs) {
+    def username = inputs.username,
+        password = inputs.password,
+        firstname = inputs.firstname,
+        lastname = inputs.lastname,
+        birthday = inputs.birthday,
+        gender = inputs.gender
+
+		def sqlstr = """
+				INSERT INTO user_tbl (username, password, firstname, lastname, birthday, gender) 
+							VALUES ($username, $password, $firstname, $lastname, $birthday, $gender);
+			"""
+
+		try {
+				sql.execute(sqlstr);
+				sql.commit()
+        println "executed successfully!"
+		}catch(Exception ex) {
+				sql.rollback()
+        println "executed failed!"
+		}
+	}
+  // Insert new user status
+  void createUserStatus(int userID){
+      long d = System.currentTimeMillis();
+      def current_date  = new Date(d).format("YYYY-MM-dd HH:mm:ss");
+
+      def sqlstr = """
+         INSERT INTO user_status_tbl (user_ID, date_created, date_updated) 
+               VALUES ($userID, $current_date, $current_date);
+      	"""
+
+      try {
+         sql.execute(sqlstr);
+         sql.commit()
+         println("Successfully created user status") 
+      }catch(Exception ex) {
+         sql.rollback()
+         println("Create user failed") 
+      }
+  }
+
+  // Insert new borrow data
+  void createLoan(profile, inputs){
+    long d = System.currentTimeMillis();
+    def current_date  = new Date(d).format("YYYY-MM-dd HH:mm:ss");
+
+    def sqlstr = """
+        INSERT INTO borrow_tbl (user_ID, amount, term, date_created) 
+              VALUES ($profile.ID, $inputs.amount, $inputs.term, $current_date);
+      """
+
+    try {
+        sql.execute(sqlstr);
+        sql.commit()
+        println "created loan"
+    }catch(Exception ex) {
+        sql.rollback()
+        println "failed inserting loan"
+    }
+  }
+  
+
+  // UPDATE ------------------------------------------------------------------------------------------------------------------------
+  void updateStatusBorrow(borrow) {
+    def sqlstr = """
+				UPDATE user_status_tbl 
+				SET current_borrow_ID = $borrow.ID, 
+            current_loan = $borrow.principal_amount, 
+            total_balance = $borrow.principal_amount, 
+            total_paid_amount = 0,
+            date_updated = $borrow.date_created,
+            remaining_term = $borrow.term
+				WHERE user_ID = $borrow.user_ID;
+		"""
+
+		try {
+				sql.execute(sqlstr);
+				sql.commit()
+				println("Successfully upated user's status") 
+		}catch(Exception ex) {
+				sql.rollback()
+				println("Transaction rollback") 
+		}
+
+  }
+   // READ ------------------------------------------------------------------------------------------------------------------------
+  // Select current user's data
+  int getUserID(String username, String password) {
+    def sqlscript = """
+        SELECT ID 
+          FROM user_tbl
+          WHERE username = $username AND password = $password
+    """
+   int ID = 0;
+   sql.eachRow(sqlscript) {
+         tp -> ID = tp.ID
+      }  
+   return ID;
+  }
+  
+  int getIDByUsername(String name) {
+    def sqlscript = """
+      SELECT ID 
+         FROM user_tbl
+         WHERE username = $name
+    """
+    def result = sql.firstRow(sqlscript);
+    return result.ID;
+  }
+
+  String getPasswordByID(int ID) {
+    def sqlscript = """
+      SELECT password 
+         FROM user_tbl
+         WHERE ID = $ID
+    """
+    def result = sql.firstRow(sqlscript);
+    return result.password;
+  }
+
+  def getProfileByID(int ID) {
+    def sqlscript = """
+      SELECT * 
+         FROM user_tbl
+         WHERE ID = $ID
+    """
+    def result = sql.firstRow(sqlscript);
+    return result;
+  }
+
+  def getStatusByID(int ID) {
+    def sqlscript = """
+      SELECT * 
+         FROM user_status_tbl
+         WHERE user_ID = $ID
+    """
+    def result = sql.firstRow(sqlscript);
+    return result;
+  }
+
+  def getCurrentBorrowByUserID(int userID) {
+    def sqlscript = """
+      SELECT * 
+         FROM borrow_tbl
+         WHERE user_ID = $userID
+         ORDER BY ID DESC
+    """
+    def result = sql.firstRow(sqlscript);
+    return result;
+  }
+   
 }
 
 class DummyAdmin {
@@ -551,7 +769,7 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.TransactPayLoan()
+    this.UserLoginPage()
     
   }
 
@@ -598,10 +816,6 @@ class LoanAccountSystem {
         answer = null,
         result = 0
 
-    def acc = [:]
-
-    def isDone = 0
-
     do {
       cli.title "User Register Page"
 
@@ -623,6 +837,7 @@ class LoanAccountSystem {
           this.WelcomePage()
           break
         default:
+          
           break
       }
     } while (true)
@@ -647,7 +862,7 @@ class LoanAccountSystem {
 
       switch(result) {
         case 1:
-          user.registerNewUser()
+          user.registerInput()
           this.UserPage()
           break
         case 2:
@@ -686,11 +901,15 @@ class LoanAccountSystem {
         result = 0
 
     do {
-      cli.title "WELCOME TO LOAN SYSTEM"
+      cli.title "WELCOME, $user.profile.firstname"
       cli.center "DASHBOARD" 
+      cli.break_line()
+
       cli.options 5, "Borrow", "Pay loan", "Check Account Status", "Log out"
       
       (isError, answer, result) = cli.prompt_input isError
+
+      if(answer == '4') user.logout()
 
       cli.link  answer,
                 this.&TransanctBorrow,
@@ -701,20 +920,17 @@ class LoanAccountSystem {
     } while (true)
   }
 
-  // check status
   void TransanctBorrow() {
     def isError = 0,
         answer = null,
         result = 0
 
     do {
-      cli.check_status user, "borrow", this.&ErrorPage
+      cli.check_status user, "borrow", this.&StatusErrorPage
       
       cli.title "BORROW DASHBOARD"
 
       cli.user_input_warning user
-      // Check the user's status *********************************
-      
       
       cli.user_input  user, this.&TransanctBorrow, this.&UserDashboard,
                       UserInput.amount,
@@ -727,6 +943,8 @@ class LoanAccountSystem {
           // proceed to terms and condition
           this.TermsAndConditions()
           // BD task -----------------------------------------------------------
+          user.transactBorrow()
+          user.emptyInput()
           this.RecieptBorrowTransaction()
           break
         case 2:
@@ -777,14 +995,17 @@ class LoanAccountSystem {
                                                                   user.current_borrow.principal_amount,
                                                                   user.current_borrow.monthly_payment
 
+      def df = new DecimalFormat("#0.0")
+      def interest = df.format(user.current_borrow.interest * 100)
+
       
       cli.display_data  "Account",             "${user.profile.firstname} ${user.profile.lastname}",
                         "Total Borrowed",      "$amount",
                         "Term",                "${user.current_borrow.term} months",
-                        "Interest",            "${user.current_borrow.interest * 100}%",
+                        "Interest",            "$interest%",
                         "Total Interest",      "$total_interest",
                         "Total Amount to pay", "$total_amount",
-                        "Loan Starting Date",  "${user.current_borrow.date_created}",
+                        "Loan Starting Date",  "${user.current_borrow.date_created.format('yyyy-MM-dd HH:mm:ss')}",
                         "Monthly Payment",     "$monthly_payment"
 
       (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Enter 'Y' to proceed to dashboard"
@@ -793,14 +1014,13 @@ class LoanAccountSystem {
     } while (true)
   }
 
-  // check status
   void TransactPayLoan(){
     def isError = 0,
         answer = null,
         result = 0
 
     do {
-      cli.check_status user, "pay loan", this.&ErrorPage
+      cli.check_status user, "pay loan", this.&StatusErrorPage
       
       cli.title "PAYMENT SECTION" 
 
@@ -874,7 +1094,7 @@ class LoanAccountSystem {
         result = 0
 
     do {
-      cli.check_status user, "status", this.&ErrorPage
+      cli.check_status user, "status", this.&StatusErrorPage
 
       cli.title "ACCOUNT STATUS"
 
@@ -1003,7 +1223,7 @@ class LoanAccountSystem {
     } while (true)
   }
 
-  void ErrorPage(header, script) {
+  void StatusErrorPage(header, script) {
     def isError = 0,
         answer = null,
         result = 0
