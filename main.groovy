@@ -769,7 +769,7 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.UserLoginPage()
+    this.WelcomePage()
     
   }
 
