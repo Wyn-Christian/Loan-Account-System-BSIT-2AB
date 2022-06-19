@@ -1,6 +1,7 @@
 import groovy.sql.Sql 
 import java.sql.*
-
+import java.text.NumberFormat;
+import java.util.Locale;
 
 // This is the main program that starts the application
 class Main {
@@ -25,7 +26,8 @@ enum UserInput {
   birthday,
   gender,
   amount,
-  number
+  number,
+  term
 } 
 
 
@@ -104,7 +106,7 @@ class CLIUtilities {
 
   void break_line() { print "\n"}
 
-   def prompt_input(int isErr, InputType type = 'number', 
+  def prompt_input(int isErr, InputType type = 'number', 
                    String str = "Enter",
                    String errStr = "Please enter valid input...",
                    int blank_line = 1) {
@@ -152,17 +154,23 @@ class CLIUtilities {
           case 'repassword':
             prompt_script = 're-enter password'
             break
+          case 'term':
+            prompt_script = 'Payment Term(3,6,9,12)'
+            break
           default:
             prompt_script = input_type
         }
         
         answer = this.input prompt_script
         
-        if(answer == 'return') returnpage()
+        if(answer == 'return') {
+          user.emptyInput()
+          returnpage()
+        }
 
         
         result = user.inputValidator(input_type, answer)
-
+        
         if(result) {
           if (input_type == 'repassword') 
             user.input.repassword = true
@@ -181,6 +189,37 @@ class CLIUtilities {
             this.display_input input_type, user.input[input_type]
         }
       }
+    }
+  }
+
+  def user_input_warning(UserAccount user) {
+    if(user.has_error) {
+      def (i, j) = user.has_error
+      def script = user.error_script[i][j - 1]
+      this.center script
+      
+      user.has_error = []
+    } else {
+      this.center "Enter 'return' to return"
+    }
+      this.break_line()
+  }
+  def check_status(UserAccount user, String type, Object errPage){
+    switch(type){
+      case "borrow":
+        if(user.status.current_borrow_ID)
+          errPage("Oops..", "Sorry, please pay your exist loan first...")
+        break
+      case "pay loan":
+        if(!user.status.current_borrow_ID)
+          errPage("So quiet here...", "Looks like you don't have an existing loan yet...")
+        break
+      case "status":
+        if(!user.status.current_borrow_ID)
+          errPage("ACCOUNT STATUS", "Looks like you don't have an existing loan yet...")
+        break
+      default:
+        return
     }
   }
 
@@ -219,49 +258,99 @@ class CLIUtilities {
   def isNum(String str){
      str =~ /\b\d+\b/ ? true : false
   }
+
+  def numberToCurrency(Object... number) {
+
+    NumberFormat format = NumberFormat.getCurrencyInstance();
+    def result = []
+    for(num in number) {
+      String currency = format.format(num).replace('$','P ');
+      result.add(currency)
+    }
+    return result
+  }
 }
 
 
-class UserAccount{
+class UserAccount {
+  def has_error = []
   def has_no_error = null
+
   def input = [
-    username : null,
-    password : null,
-     firstname : null,
-    lastname : null,
-    bday : null,
-    gender : null,
-    repassword : false
+    username    : null,
+    password    : null,
+    firstname   : null,
+    lastname    : null,
+    birthday    : null,
+    gender      : null,
+    repassword  : false
   ]
-  def register = [
-    username : null,
-    password : null,
-     firstname : null,
-    lastname : null,
-    bday : null,
-    gender : null
+
+  def database = [
+    username  : 'wynter',
+    password  : 'Wyn1234!',
+    firstname : 'Wyn Christian',
+    lastname  : 'Rebanal',
+    birthday  : '2001-03-03',
+    gender    : 'm'
   ]
+
   def profile = [
-    firstname : null,
-    lastname : null,
-    bday : null,
-    gender : null,
+    ID        : '1',
+    username  : 'wynchristian',
+    firstname : 'Wyn Christian',
+    lastname  : 'Rebanal',
+    birthday  : '2002-03-03',
+    gender    : 'm',
   ]
-  def current_error = null;
+
+  def status = [
+    ID                : "1001",
+    user_ID           : "1",
+    current_borrow_ID : null,
+    current_loan      : 51000,
+    remaining_term    : 2,
+    total_balance     : 28900,
+    total_paid_amount : 34000,
+    date_created      : "2022-01-16 18:00:32",
+    date_updated      : "2022-06-16 18:00:32"
+  ]
+
+  def current_borrow = [
+    ID                : "3001",
+    amount            : 50000,
+    term              : 6,
+    interest          : 0.02,
+    total_interest    : 1000,
+    principal_amount  : 51000 /*getPrincipalAmount(amount, interest)*/,
+    date_created      : "2022-02-17 12:45:03",
+    monthly_payment   : 8500 /* getMonthlyPayment(principal_amount, term)*/
+  ]
+  def latest_payment = [
+    ID                : "4001",
+    borrow_ID         : "3001",
+    amount            : 8500,
+    curent_loan_date  : "2022-06-16 18:00:32",
+  ]
+
+
   def error_script = [
     username : [
       "The username you entered already exist",
-      "Please enter valid format of username"
+      "Please enter valid format of username",
+      "username doesn't exist!"
     ],
     password : [
-      "Invalid password input format",
+      "Invalid password input format!",
       "Wrong password!",
-      "Password doesn't match"
+    ],
+    repassword : [
+      "Password doesn't match",
     ],
     name : [
       "Invalid name format!"
     ],
-    date : [
+    birthday : [
       "Invalid date format!"
     ],
     gender : [
@@ -269,9 +358,83 @@ class UserAccount{
     ],
     amount : [
       "Please enter valid 'amount' format!"
-    ]
+    ],
+    term : [
+      "Please enter valid term input!",
+      "Please choose available payment plan!",
+    ],
   ]
 
+  void registerNewUser() {
+    // CREATE user ------------------------------------------------
+    this.database = this.input
+    this.emptyInput()
+  }
+  def login() {
+
+    if(this.database.username != this.input.username) {
+      this.has_error = ['username', 3]
+      return false   
+    }else if (this.database.password != this.input.password){
+      this.has_error = ['password', 2]
+      return false
+    }
+    this.emptyInput()
+    return true
+  }
+
+  void emptyInput(){
+    this.input = [
+      username : null,
+      password : null,
+      firstname : null,
+      lastname : null,
+      birthday : null,
+      gender : null,
+      repassword : false
+    ]
+  }
+
+  void logout() {
+    this.profile = [
+      ID        : null,
+      username  : null,
+      firstname : null,
+      lastname  : null,
+      birthday  : null,
+      gender    : null,
+    ]
+    this.status = [
+      ID                : null,
+      user_ID           : null,
+      current_borrow_ID : null,
+      current_loan      : null,
+      remaining_term    : null,
+      total_balance     : null,
+      total_paid_amount : null,
+      date_created      : null,
+      date_updated      : null,
+    ]
+
+    this.current_borrow = [
+      ID                : null,
+      amount            : null,
+      term              : null,
+      interest          : null,
+      total_interest    : null,
+      principal_amount  : null,
+      date_created      : null,
+      monthly_payment   : null,
+    ]
+    this.latest_payment = [
+      ID                : null,
+      borrow_ID         : null,
+      amount            : null,
+      curent_loan_date  : null,
+    ]
+
+  }
+  
   def inputValidator(type, str) {
      def validator = [
       username: this.&isValidUsername,
@@ -281,139 +444,87 @@ class UserAccount{
       lastname: this.&isValidName,
       birthday: this.&isValidDate,
       gender: this.&isValidGender,
-      amount: this.&isValidAmount
+      amount: this.&isValidAmount,
+      term: this.&isValidTerm
     ]
+
     this.has_no_error = validator[type](str)
     
     if(this.has_no_error == true) {
 
       if (type == 'repassword') 
         this.input.repassword = true
-      else 
+      else{
         this.input[type] = str
+      }
 
-    } 
+    } else {
+      this.has_error = [type, this.has_no_error]
+    }
     return has_no_error == true ? true : false
 
   }
 
   def validatePassword(ans) {
-    input.password == ans ? true : 4 
+    this.input.password == ans ? true : 1
   }
   
   def isValidDate(String str) {
     return str =~ /^\d{4}[\-|\s|\/](0[1-9]|1[012])[\-|\s|\/](0[1-9]|[12][0-9]|3[01])$/
           ? true
-          : false
+          : 1
   }
   def isValidAmount(String str) {
-     str =~ /\b\d+\b/ ? true : false
+     str =~ /\b\d+\b/ ? true : 1
   }
 
   def isValidUsername(String str) {
   // https://mkyong.com/regular-expressions/how-to-validate-username-with-regular-expression/
   //Username requirements
-     str =~ /^[a-zA-Z0-9]([._-](?![._-])|[a-zA-Z0-9]){3,18}[a-zA-Z0-9]$/ ? true : 1
+     str =~ /^[a-zA-Z0-9]([._-](?![._-])|[a-zA-Z0-9]){3,18}[a-zA-Z0-9]$/ ? true : 2
   }
 
   def isValidGender(String str) {
     if(str.size() > 1)
-      return false
+      return 0
     if(str =~ /[m|M|F|f]{1}/)
       return true
     else
-      return false
+      return 0
   }
 
   def isValidPassword(String str) {
     // https://mkyong.com/regular-expressions/how-to-validate-password-with-regular-expression/
-    str =~ /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()\-[{}]:;',?\/*~$^+=<>]).{8,20}$/ ? true : 2
+    str =~ /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()\-[{}]:;',?\/*~$^+=<>]).{8,20}$/ ? true : 1
   }
   def isValidName(String str) {
-    str =~ /^(?i)[a-z]([- ',.a-z]{0,23}[a-z])?$/ ? true : false
+    str =~ /^(?i)[a-z]([- ',.a-z]{0,23}[a-z])?$/ ? true : 1
   }
   def isNum(String str){
-     str =~ /\b\d+\b/ ? true : false
+     str =~ /\b\d+\b/ ? true : 1
+  }
+  def isValidTerm(String str){
+    if(str =~ /^\d{1,2}$/) {
+      switch(str) {
+        case '3':
+        case '6':
+        case '9':
+        case '12':
+          return true
+          break
+        default:
+          return 2
+      }
+    } 
+    return 1
   }
 
 }
-
 
 
 // A class that consists of SQL methods for back end
 class DBUtilities {
   // Still in progress
-}
-
-
-// Just dummy data for front end
-class DummyUser {
-  def dummy_profile = [
-            ID : '1',
-      username : "johnDoe",
-      firstname : "John",
-      lastname :  "Doe",
-      gender :    "m",
-      password : "1234",
-      birthday : "2001-03-03"
-  ];
-  def dummy_status = [
-        ID :  "1001",
-    user_ID :      "1",
-    current_borrow_ID : "3001",
-    current_loan : 51000,
-    remaining_term : 2,
-    total_balance : 28900,
-    total_paid_amount : 34000,
-    date_created : "2022-01-16 18:00:32",
-    date_updated : "2022-06-16 18:00:32"
-  ]
-  def dummy_borrow = [
-    ID: "3001",
-    user_ID: '1',
-    amount : 50000,
-    term : 6,
-    interest : 0.02,
-    total_interest : 1000,
-    principal_amount : 51000 /*getPrincipalAmount(amount, interest)*/,
-    date_created : "2022-02-17 12:45:03",
-    monthly_payment : 8500 /* getMonthlyPayment(principal_amount, term)*/
-
-  ]
-  def dummy_pay_loan = [
-    ID: "4001",
-    user_ID: "1",
-    borrow_ID: "3001",
-    amount : 8500,
-    curent_loan_date : "2022-06-16 18:00:32",
-  ]
-
-  // login
-  int login(username, password) {
-    if(dummy_profile.username != username){
-      return 1
-    } else if (dummy_profile.password != password){
-      return 2
-    } else {
-      return 0
-    }
-  }
-  // logout
-  void logout(){
-    // empty out the maps
-  }
-
-  // create account
-  // update account
-  // read current account
-
-  // create status  
-  // udpate status  
-  // read current status
-
-  // create transaction 
-  
-
 }
 
 class DummyAdmin {
@@ -436,12 +547,11 @@ class DummyAdmin {
 class LoanAccountSystem {
   CLIUtilities cli = new CLIUtilities();
   UserAccount user = new UserAccount();
-  DummyUser dummyUser = new DummyUser();
   DummyAdmin dummyAdmin = new DummyAdmin();
 
   void run() {
     // change this to open directly the page
-    this.UserProfileRegisterPage()
+    this.TransactPayLoan()
     
   }
 
@@ -480,8 +590,6 @@ class LoanAccountSystem {
                 this.&UserLoginPage,
                 this.&WelcomePage
 
-    
-              
     } while (true)
   }
 
@@ -496,27 +604,23 @@ class LoanAccountSystem {
 
     do {
       cli.title "User Register Page"
+
+      cli.user_input_warning user
       
       cli.user_input  user, this.&UserRegisterPage, this.&UserPage,
-                UserInput.username,
-                UserInput.password,
-                UserInput.repassword
+                      UserInput.username,
+                      UserInput.password,
+                      UserInput.repassword
 
-      cli.title "User Register Page"
-      cli.center "Create the account?"
-      
-      (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Enter(Y|N)" 
+      (isError, answer, result) = cli.prompt_input isError, InputType.yes, "Next Page(Y)" 
 
       switch(result) {
         case 1:
-          // Pending DB task -----------------------------------
-          // Insert new date in user_table
-          // proceed to profile information
-          this.UserProfileRegisterPage(acc.username);
+          this.UserProfileRegisterPage()
           break
-        case 2:
-          // then return to welcome page
-          this.WelcomePage();
+        case 0:
+          user.emptyInput()
+          this.WelcomePage()
           break
         default:
           break
@@ -524,39 +628,30 @@ class LoanAccountSystem {
     } while (true)
   }
 
-  void UserProfileRegisterPage(String username) {
+  void UserProfileRegisterPage() {
     def isError = 0,
         answer = null,
         result = 0
-
-    def acc = [username:username]
-
-    def errAnswer = 0,
-        isErrDate = 0,
-        isErrGender = 0
 
     do {
       cli.title "User Register Profile Page"
 
       cli.user_input  user, this.&UserProfileRegisterPage, this.&UserPage,
-                UserInput.firstname,
-                UserInput.lastname,
-                UserInput.birthday,
-                UserInput.gender
+                      UserInput.firstname,
+                      UserInput.lastname,
+                      UserInput.birthday,
+                      UserInput.gender
       
       cli.break_line()
       (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Create Profile?(Y|N)" 
 
       switch(result) {
         case 1:
-          // pending DB task ------------------------------------------------------------------------------
-          // Update user's data in user_tbl
-          // while displaying "creating account"
-          // then return to user page
+          user.registerNewUser()
           this.UserPage()
           break
         case 2:
-          // return to user page
+          user.emptyInput()
           this.UserPage()
           break
         default:
@@ -567,61 +662,22 @@ class LoanAccountSystem {
   }
 
   void UserLoginPage() {
-    def acc = [:]
-    int err = 0
-
-    def loginVerified = 0,
-        isUserExist = null,
-        isPasswordRight = null;
-
     do{
       cli.title "User Login Page"
-      cli.center "Enter 'return' to return"
 
-      if(isUserExist == 0) {
-        cli.center "The username you entered doesn't exist" 
-      } else if(isPasswordRight == 0) {
-        cli.center "You've entered the wrong password" 
-      } else {
-        cli.break_line()
-      }
-      
-      cli.break_line()
-      acc.username = cli.input "username"
-      if(acc.username == 'return'){
-        this.UserPage();
-      }
-      
-      acc.password = cli.input "password"
-      if(acc.password == 'return'){
-        this.UserPage();
-      }
+      cli.user_input_warning user
 
-      // Verify login
-      // DB task -----------------------------------------------------------------------
-      switch (dummyUser.login(acc.username, acc.password)) {
-        case 1:
-          isUserExist = 0
-          break
-        case 2:
-          isUserExist = 1
-          isPasswordRight = 0
-          break
-        case 0:
-          isUserExist = 1
-          isPasswordRight = 1
-          loginVerified = 1
-          // DB TASK ------------------------------------------------------------------
-          // login user (get the current status)
-          // proceed to dashboard
-          this.UserDashboard()
-          break
-        default: 
-           err = 1
-          println "error occured in login method..."
+      cli.user_input  user, this.&UserLoginPage, this.&WelcomePage,
+                      UserInput.username,
+                      UserInput.password
+      
+      if(user.login()){
+        this.UserDashboard()
       }
+      user.emptyInput()
+      continue
+      
     } while (true);
-
   }
 
   void UserDashboard(){
@@ -645,61 +701,25 @@ class LoanAccountSystem {
     } while (true)
   }
 
+  // check status
   void TransanctBorrow() {
     def isError = 0,
         answer = null,
         result = 0
 
-    def acc = [:]
-    
-    def isDone = [0, 0],
-        isErrAmount = 0,
-        isErrTerms = 0,
-        isErrAnswer = 0
-
     do {
+      cli.check_status user, "borrow", this.&ErrorPage
+      
       cli.title "BORROW DASHBOARD"
 
-      cli.display_warning_if isErrAmount
-      if(acc.amount == null){
-        acc.amount = cli.input "Enter amount"
-      } else {
-        cli.display_input "Enter amount", acc.amount 
-      }
-
-      if(cli.isValidAmount(acc.amount) && !isDone[0]){
-        isDone[0] = 1
-        isErrAmount = 0
-        continue
-      } else if (!isDone[0]) {
-        isErrAmount = 1
-        acc.amount = null
-        continue
-      }
+      cli.user_input_warning user
+      // Check the user's status *********************************
       
-      cli.display_warning_if isErrTerms
-      if(acc.terms == null){
-        acc.terms = cli.input "Payment Month(3,6,9,12)"
-      } else {
-        cli.display_input "Payment Month(3,6,9,12)", acc.terms 
-      }
-
-      if(!isDone[1]){
-        switch(acc.terms){
-          case '3':
-          case '6':
-          case '9':
-          case '12':
-            isDone[1] = 1
-            isErrTerms = 0
-            continue
-          default:
-            acc.terms = null
-            isErrTerms = 1
-            continue
-        }
-      }
-
+      
+      cli.user_input  user, this.&TransanctBorrow, this.&UserDashboard,
+                      UserInput.amount,
+                      UserInput.term
+  
       (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Are you sure?(Y|N)" 
 
       switch(result) {
@@ -707,12 +727,11 @@ class LoanAccountSystem {
           // proceed to terms and condition
           this.TermsAndConditions()
           // BD task -----------------------------------------------------------
-          // create borrow data for the current user
-          // currentUser.borrowTransaction()
           this.RecieptBorrowTransaction()
           break
         case 2:
           // return to dashboard
+          user.input = []
           this.UserDashboard()
           break
         case 0:
@@ -721,29 +740,6 @@ class LoanAccountSystem {
         default:
           println "error"
       }
-    } while (true)
-  }
-
-  void RecieptBorrowTransaction() {
-    def isError = 0,
-        answer = null,
-        result = 0
-    
-    do {
-      cli.title "SUMMARY OF BILLING"
-      
-      cli.display_data  "Account",             "${dummyUser.dummy_profile.firstname} ${dummyUser.dummy_profile.lastname}",
-                        "Total Borrowed",      "${dummyUser.dummy_borrow.amount}",
-                        "Term",                "${dummyUser.dummy_borrow.term} months",
-                        "Interest",            "${dummyUser.dummy_borrow.interest * 100}%",
-                        "Total Interest",      "${dummyUser.dummy_borrow.total_interest}",
-                        "Total Amount to pay", "${dummyUser.dummy_borrow.principal_amount}",
-                        "Loan Starting Date",  "${dummyUser.dummy_borrow.date_created}",
-                        "Monthly Payment",     "${dummyUser.dummy_borrow.monthly_payment}"
-
-      (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Enter 'Y' to proceed to dashboard"
-      if(result) this.UserDashboard()
-
     } while (true)
   }
 
@@ -768,38 +764,57 @@ class LoanAccountSystem {
     
   }
 
+  void RecieptBorrowTransaction() {
+    def isError = 0,
+        answer = null,
+        result = 0
+    
+    do {
+      cli.title "SUMMARY OF BILLING"
+      def (amount, total_interest, 
+            total_amount, monthly_payment) = cli.numberToCurrency user.current_borrow.amount,
+                                                                  user.current_borrow.total_interest,
+                                                                  user.current_borrow.principal_amount,
+                                                                  user.current_borrow.monthly_payment
+
+      
+      cli.display_data  "Account",             "${user.profile.firstname} ${user.profile.lastname}",
+                        "Total Borrowed",      "$amount",
+                        "Term",                "${user.current_borrow.term} months",
+                        "Interest",            "${user.current_borrow.interest * 100}%",
+                        "Total Interest",      "$total_interest",
+                        "Total Amount to pay", "$total_amount",
+                        "Loan Starting Date",  "${user.current_borrow.date_created}",
+                        "Monthly Payment",     "$monthly_payment"
+
+      (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Enter 'Y' to proceed to dashboard"
+      if(result) this.UserDashboard()
+
+    } while (true)
+  }
+
+  // check status
   void TransactPayLoan(){
     def isError = 0,
         answer = null,
         result = 0
 
-    def isErrAmount = 0,
-        isDone = 0,
-        amount = null    
-
     do {
+      cli.check_status user, "pay loan", this.&ErrorPage
+
+      
       cli.title "PAYMENT SECTION" 
-      cli.display_data  "Loan Amount",  "${dummyUser.dummy_borrow.amount}",
-                        "Term",         "${dummyUser.dummy_borrow.term}",
-                        "Interest",     "${(int)(dummyUser.dummy_borrow.interest * 100)}%"
 
-    
-      cli.display_warning_if isErrAmount
-      if(amount == null){
-        amount = cli.input "Enter amount"
-      } else {
-        cli.display_input "Enter amount", amount 
-      }
+      cli.user_input_warning user
+      def interest = (int)(user.current_borrow.interest * 100)
+      def (amount) = cli.numberToCurrency user.current_borrow.amount
+      
+      cli.display_data  "Loan Amount",  "$amount",
+                        "Term",         "${user.current_borrow.term}",
+                        "Interest",     "$interest%"
 
-      if(cli.isValidAmount(amount) && !isDone){
-        isDone = 1
-        isErrAmount = 0
-        continue
-      } else if (!isDone){
-        isErrAmount = 1
-        amount = null
-        continue
-      }
+      cli.user_input  user, this.&TransactPayLoan, this.&UserDashboard,
+                      UserInput.amount
 
       cli.break_line()
       (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Are you sure?(Y|N)"
@@ -814,6 +829,7 @@ class LoanAccountSystem {
           break
         case 2:
           // return to dashboard
+          user.input = []
           this.UserDashboard()
           break
         case 0:
@@ -836,12 +852,15 @@ class LoanAccountSystem {
     do {
       cli.title "RECEIPT PAYMENT"
 
-      cli.display_data "Account",           "${dummyUser.dummy_profile.firstname} ${dummyUser.dummy_profile.lastname}",
-                       "Amount Paid",       "${dummyUser.dummy_pay_loan.amount}",
-                       "Total Paid",        "${dummyUser.dummy_status.total_paid_amount}",
-                       "Remaining Term",    "${dummyUser.dummy_status.remaining_term} months",
-                       "Loan Date",         "${dummyUser.dummy_borrow.date_created}",
-                       "Payment Date",      "${dummyUser.dummy_pay_loan.curent_loan_date}"
+      def (amount, total_paid) = cli.numberToCurrency user.latest_payment.amount,
+                                                      user.status.total_paid_amount
+                                                      
+      cli.display_data "Account",           "$user.profile.firstname $user.profile.lastname",
+                       "Amount Paid",       "$amount",
+                       "Total Paid",        "$total_paid",
+                       "Remaining Term",    "${user.status.remaining_term} months",
+                       "Loan Date",         "${user.current_borrow.date_created}",
+                       "Payment Date",      "${user.latest_payment.curent_loan_date}"
 
       cli.break_line()
       (isError, answer, result) = cli.prompt_input isError, InputType.yes, "Enter 'Y' to proceed to dashboard" 
@@ -856,26 +875,29 @@ class LoanAccountSystem {
         result = 0
 
     do {
+      cli.check_status user, "status", this.&ErrorPage
+
       cli.title "ACCOUNT STATUS"
+
+      cli.check_status "pay loan"
       
-      cli.display_data "Current Amount Borrowed",  "${dummyUser.dummy_borrow.amount}",
-                       "Loan to Pay",              "${dummyUser.dummy_status.current_loan}",
-                       "Paid Amount",              "${dummyUser.dummy_status.total_paid_amount}",
-                       "Outstanding Balance",      "${dummyUser.dummy_status.total_balance}",
-                       "Remaining Term",           "${dummyUser.dummy_status.remaining_term} months"
+      def (amount, loan, paid_amount, balance) = cli.numberToCurrency user.current_borrow.amount,
+                                                        user.status.current_loan,
+                                                        user.status.total_paid_amount,
+                                                        user.status.total_balance
+
+      cli.display_data "Current Amount Borrowed",  "$amount",
+                       "Loan to Pay",              "$loan",
+                       "Paid Amount",              "$paid_amount",
+                       "Outstanding Balance",      "$balance",
+                       "Remaining Term",           "$user.status.remaining_term months"
 
       (isError, answer, result) = cli.prompt_input isError, InputType.yes, "Enter 'Y' to return"
-      
-      switch(result){
-        case 1:
-          this.UserDashboard()
-        default:
-          break
-      }
+      if(result) this.UserDashboard()
+
     } while (true)
   }
 
- 
   void AdminPage(){ 
     def isError = 0,
         answer = null,
@@ -983,6 +1005,22 @@ class LoanAccountSystem {
       this.AdminAccountPage()
     } while (true)
   }
+
+  void ErrorPage(header, script) {
+    def isError = 0,
+        answer = null,
+        result = 0
+    do {
+      cli.title header
+
+      cli.center script
+
+      (isError, answer, result) = cli.prompt_input isError, InputType.yes, "Return to Dashboard(Y)"
+      result && this.UserDashboard()
+
+    } while (true)
+  }
+  
 }
 
 
