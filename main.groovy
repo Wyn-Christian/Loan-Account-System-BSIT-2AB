@@ -1,5 +1,5 @@
-import java.sql.*; 
 import groovy.sql.Sql 
+import java.sql.*
 
 
 // This is the main program that starts the application
@@ -15,6 +15,19 @@ enum InputType {
   yesNo,
   number
 } 
+
+enum UserInput {
+  username,
+  password,
+  repassword,
+  firstname,
+  lastname,
+  birthday,
+  gender,
+  amount,
+  number
+} 
+
 
 // A class that consists of utilities for CLI
 class CLIUtilities {
@@ -88,11 +101,7 @@ class CLIUtilities {
   void display_warning_if(isError, String errScript = "Please enter valid input...", int ln = 1) {
     isError ? println(errScript.center(midPadding)) : ln ? this.break_line() : null
   }
-  
-  // void display_warning_if(isError,  ln = 1, String errScript = "Please enter valid input..." ) {
-  //   isError ? println(errScript.center(midPadding)) : ln ? this.break_line() : null
-  // }
-  
+
   void break_line() { print "\n"}
 
    def prompt_input(int isErr, InputType type = 'number', 
@@ -100,8 +109,6 @@ class CLIUtilities {
                    String errStr = "Please enter valid input...",
                    int blank_line = 1) {
     def answer, result
-    // str = str ? str : "Enter"
-    // errStr = errStr ? errStr : "Please enter valid input..."
 
     def types = [
       number: this.&isNum,
@@ -122,20 +129,59 @@ class CLIUtilities {
     return [isErr, answer, result]
   }
 
-  boolean isValidDate(String str) {
-    return str =~ /^\d{4}[\-|\s|\/](0[1-9]|1[012])[\-|\s|\/](0[1-9]|[12][0-9]|3[01])$/
-          ? true
-          : false
-  }
+  def user_input(UserAccount user,  Object page, Object returnpage, UserInput... type){
+    def answer = null,
+        isError = 0,
+        result = 0
 
-  boolean isValidGender(String str) {
-    
-    if(str.size() > 1)
-      return false
-    if(str =~ /[m|M|F|f]{1}/)
-      return true
-    else
-      return false
+    for (input_type in type) {
+      input_type = input_type.toString()
+      
+      if(!user.input[input_type]) {
+        def prompt_script;
+        switch(input_type) {
+          case 'firstname':
+            prompt_script = 'first name'
+            break
+          case 'lastname':
+            prompt_script = 'last name'
+            break
+          case 'birthday':
+            prompt_script = 'birthday(YYYY-MM-DD)'
+            break
+          case 'repassword':
+            prompt_script = 're-enter password'
+            break
+          default:
+            prompt_script = input_type
+        }
+        
+        answer = this.input prompt_script
+        
+        if(answer == 'return') returnpage()
+
+        
+        result = user.inputValidator(input_type, answer)
+
+        if(result) {
+          if (input_type == 'repassword') 
+            user.input.repassword = true
+          else 
+            user.input[input_type] = answer
+        } 
+        page()
+      } else {
+        switch(input_type) {
+          case 'repassword':
+            break
+          case 'password':
+            this.display_input input_type, user.input[input_type].replaceAll('.','*')
+          break
+          default:
+            this.display_input input_type, user.input[input_type]
+        }
+      }
+    }
   }
 
   int isYesNo(String str) {
@@ -170,19 +216,135 @@ class CLIUtilities {
     }
   }
 
-  boolean isValidAmount(String str) {
-    // assert str =~ /\b\d+\b/
-    return str =~ /\b\d+\b/ ? true : false
-  }
   def isNum(String str){
      str =~ /\b\d+\b/ ? true : false
   }
 }
 
+
+class UserAccount{
+  def has_no_error = null
+  def input = [
+    username : null,
+    password : null,
+     firstname : null,
+    lastname : null,
+    bday : null,
+    gender : null,
+    repassword : false
+  ]
+  def register = [
+    username : null,
+    password : null,
+     firstname : null,
+    lastname : null,
+    bday : null,
+    gender : null
+  ]
+  def profile = [
+    firstname : null,
+    lastname : null,
+    bday : null,
+    gender : null,
+  ]
+  def current_error = null;
+  def error_script = [
+    username : [
+      "The username you entered already exist",
+      "Please enter valid format of username"
+    ],
+    password : [
+      "Invalid password input format",
+      "Wrong password!",
+      "Password doesn't match"
+    ],
+    name : [
+      "Invalid name format!"
+    ],
+    date : [
+      "Invalid date format!"
+    ],
+    gender : [
+      "Invalid gender format!"
+    ],
+    amount : [
+      "Please enter valid 'amount' format!"
+    ]
+  ]
+
+  def inputValidator(type, str) {
+     def validator = [
+      username: this.&isValidUsername,
+      password: this.&isValidPassword,
+      repassword: this.&validatePassword,
+      firstname: this.&isValidName,
+      lastname: this.&isValidName,
+      birthday: this.&isValidDate,
+      gender: this.&isValidGender,
+      amount: this.&isValidAmount
+    ]
+    this.has_no_error = validator[type](str)
+    
+    if(this.has_no_error == true) {
+
+      if (type == 'repassword') 
+        this.input.repassword = true
+      else 
+        this.input[type] = str
+
+    } 
+    return has_no_error == true ? true : false
+
+  }
+
+  def validatePassword(ans) {
+    input.password == ans ? true : 4 
+  }
+  
+  def isValidDate(String str) {
+    return str =~ /^\d{4}[\-|\s|\/](0[1-9]|1[012])[\-|\s|\/](0[1-9]|[12][0-9]|3[01])$/
+          ? true
+          : false
+  }
+  def isValidAmount(String str) {
+     str =~ /\b\d+\b/ ? true : false
+  }
+
+  def isValidUsername(String str) {
+  // https://mkyong.com/regular-expressions/how-to-validate-username-with-regular-expression/
+  //Username requirements
+     str =~ /^[a-zA-Z0-9]([._-](?![._-])|[a-zA-Z0-9]){3,18}[a-zA-Z0-9]$/ ? true : 1
+  }
+
+  def isValidGender(String str) {
+    if(str.size() > 1)
+      return false
+    if(str =~ /[m|M|F|f]{1}/)
+      return true
+    else
+      return false
+  }
+
+  def isValidPassword(String str) {
+    // https://mkyong.com/regular-expressions/how-to-validate-password-with-regular-expression/
+    str =~ /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()\-[{}]:;',?\/*~$^+=<>]).{8,20}$/ ? true : 2
+  }
+  def isValidName(String str) {
+    str =~ /^(?i)[a-z]([- ',.a-z]{0,23}[a-z])?$/ ? true : false
+  }
+  def isNum(String str){
+     str =~ /\b\d+\b/ ? true : false
+  }
+
+}
+
+
+
 // A class that consists of SQL methods for back end
 class DBUtilities {
   // Still in progress
 }
+
 
 // Just dummy data for front end
 class DummyUser {
@@ -196,7 +358,7 @@ class DummyUser {
       birthday : "2001-03-03"
   ];
   def dummy_status = [
-            ID :  "1001",
+        ID :  "1001",
     user_ID :      "1",
     current_borrow_ID : "3001",
     current_loan : 51000,
@@ -273,12 +435,13 @@ class DummyAdmin {
 // The main application of the system
 class LoanAccountSystem {
   CLIUtilities cli = new CLIUtilities();
+  UserAccount user = new UserAccount();
   DummyUser dummyUser = new DummyUser();
   DummyAdmin dummyAdmin = new DummyAdmin();
 
   void run() {
     // change this to open directly the page
-    this.RecieptPayLoanTransaction()
+    this.UserProfileRegisterPage()
     
   }
 
@@ -318,7 +481,7 @@ class LoanAccountSystem {
                 this.&WelcomePage
 
     
-                
+              
     } while (true)
   }
 
@@ -334,26 +497,15 @@ class LoanAccountSystem {
     do {
       cli.title "User Register Page"
       
-      if(!acc.username) 
-        acc.username = cli.input "username"
-      else  
-        cli.display_input "username", acc.username
+      cli.user_input  user, this.&UserRegisterPage, this.&UserPage,
+                UserInput.username,
+                UserInput.password,
+                UserInput.repassword
 
-      if(!acc.password) {
-        acc.password = cli.input "password"
-        continue
-      } else              
-          cli.display_input "password", acc.password.replaceAll('.','*')
-
-      if (!isDone) acc.repassword = cli.input "re-enter password"
-
-      // Verify password and username -----------------------------
-      isDone = 1
-      
       cli.title "User Register Page"
       cli.center "Create the account?"
       
-      (isErr, answer, result) = cli.prompt_input isErr, InputType.yesNo, "Enter(Y|N)" 
+      (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Enter(Y|N)" 
 
       switch(result) {
         case 1:
@@ -386,51 +538,12 @@ class LoanAccountSystem {
     do {
       cli.title "User Register Profile Page"
 
-      if(!acc.firstname) {
-        acc.firstname = cli.input "first name"
-      } else {
-        cli.display_input "first name", acc.firstname
-      }
-
-      if(!acc.lastname) {
-        acc.lastname = cli.input "last name"
-      } else {
-        cli.display_input "last name", acc.lastname
-      }
-
-      // Get birthday input with valid date format
-      cli.display_warning_if isErrDate, "Please enter valid format of date..."
+      cli.user_input  user, this.&UserProfileRegisterPage, this.&UserPage,
+                UserInput.firstname,
+                UserInput.lastname,
+                UserInput.birthday,
+                UserInput.gender
       
-      if(!acc.birthday) {
-        acc.birthday = cli.input "birthday(YYYY-MM-DD)"
-        
-        if (cli.isValidDate(acc.birthday)) {
-          isErrDate = 0;
-        } else {
-          isErrDate = 1
-          acc.birthday = null
-        }
-          continue
-      } else {
-        cli.display_input "birthday(YYYY-MM-DD)", acc.birthday
-      } 
-
-      // Get gender input with valid format (m|M|f|F)
-      if(!acc.gender) {
-        cli.display_warning_if isErrGender, "Please enter valid format of gender..."
-        acc.gender = cli.input "gender(M/F)"
-
-        if (cli.isValidGender(acc.gender)) {
-          isErrGender = 0;
-        } else {
-          isErrGender = 1
-          acc.gender = null
-        }
-          continue
-      } else {
-        cli.display_input "gender", acc.gender
-      }
-
       cli.break_line()
       (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Create Profile?(Y|N)" 
 
