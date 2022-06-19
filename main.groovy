@@ -216,7 +216,7 @@ class CLIUtilities {
         break
       case "status":
         if(!user.status.current_borrow_ID)
-          errPage("ACCOUNT STATUS", "Looks like you don't have an existing loan yet...")
+          errPage("ACCOUNT STATUS", "You don't have an existing loan yet...")
         break
       default:
         return
@@ -801,7 +801,6 @@ class LoanAccountSystem {
 
     do {
       cli.check_status user, "pay loan", this.&ErrorPage
-
       
       cli.title "PAYMENT SECTION" 
 
@@ -879,8 +878,6 @@ class LoanAccountSystem {
 
       cli.title "ACCOUNT STATUS"
 
-      cli.check_status "pay loan"
-      
       def (amount, loan, paid_amount, balance) = cli.numberToCurrency user.current_borrow.amount,
                                                         user.status.current_loan,
                                                         user.status.total_paid_amount,
