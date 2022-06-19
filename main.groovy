@@ -1,6 +1,7 @@
 import java.sql.*; 
 import groovy.sql.Sql 
 
+
 // This is the main program that starts the application
 class Main {
   static void main(String[] args) {
@@ -9,8 +10,15 @@ class Main {
   }
 }
 
+enum InputType {
+  yes,
+  yesNo,
+  number
+} 
+
 // A class that consists of utilities for CLI
 class CLIUtilities {
+  
   Scanner read = new Scanner(System.in);
   def padding = 35,
       midPadding = padding * 2
@@ -77,11 +85,42 @@ class CLIUtilities {
     str.each( val -> println val.padLeft(padding))
   }
 
-  void display_warning_if(isError,  ln = 1, String errScript = "Please enter valid input..." ) {
+  void display_warning_if(isError, String errScript = "Please enter valid input...", int ln = 1) {
     isError ? println(errScript.center(midPadding)) : ln ? this.break_line() : null
   }
   
+  // void display_warning_if(isError,  ln = 1, String errScript = "Please enter valid input..." ) {
+  //   isError ? println(errScript.center(midPadding)) : ln ? this.break_line() : null
+  // }
+  
   void break_line() { print "\n"}
+
+   def prompt_input(int isErr, InputType type = 'number', 
+                   String str = "Enter",
+                   String errStr = "Please enter valid input...",
+                   int blank_line = 1) {
+    def answer, result
+    // str = str ? str : "Enter"
+    // errStr = errStr ? errStr : "Please enter valid input..."
+
+    def types = [
+      number: this.&isNum,
+      yes: this.&isYes,
+      yesNo: this.&isYesNo,
+    ]
+
+    this.display_warning_if isErr, errStr, blank_line
+    answer = this.input str
+
+    if(result = types["$type"](answer)) {
+      isErr = 0
+    } else {
+      isErr =  1 
+      answer = null
+    }
+
+    return [isErr, answer, result]
+  }
 
   boolean isValidDate(String str) {
     return str =~ /^\d{4}[\-|\s|\/](0[1-9]|1[012])[\-|\s|\/](0[1-9]|[12][0-9]|3[01])$/
@@ -118,9 +157,25 @@ class CLIUtilities {
     }
   }
 
+  int isYes(String str) {
+    switch(str){
+      case 'y':
+      case 'Y':
+      case 'yes':
+      case 'Yes':
+      case 'YES':
+        return 1
+      default:
+        return 0
+    }
+  }
+
   boolean isValidAmount(String str) {
     // assert str =~ /\b\d+\b/
     return str =~ /\b\d+\b/ ? true : false
+  }
+  def isNum(String str){
+     str =~ /\b\d+\b/ ? true : false
   }
 }
 
@@ -223,52 +278,58 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.UserRegisterPage()
+    this.RecieptPayLoanTransaction()
+    
   }
 
   void WelcomePage() {
     def isError = 0,
         answer = null,
-        result = null
+        result = 0
+
     do {
 
       cli.title "Welcome Page"
       cli.options 1, "Admin", "User"
 
-      cli.display_warning_if isError
-      def answer = cli.input()
+      (isError, answer, result) = cli.prompt_input isError
       
       cli.link  answer, 
                 this.&AdminLoginPage, 
                 this.&UserPage
 
-      isError = 1
-    } while(true)
+    } while (true)
   }
   
   void UserPage() {
-    int isError = 0
+    def isError = 0,
+        answer = null,
+        result = 0
+
     do {
       cli.title "User Page"
       cli.options 3, "Register", "Log in", "Return"
 
-      cli.display_warning_if isError
-      def answer = cli.input()
+      (isError, answer, result) = cli.prompt_input isError
 
       cli.link  answer, 
                 this.&UserRegisterPage, 
                 this.&UserLoginPage,
                 this.&WelcomePage
+
+    
                 
-      isError = 1
-    } while (isError)
+    } while (true)
   }
 
   void UserRegisterPage() {
+    def isError = 0,
+        answer = null,
+        result = 0
+
     def acc = [:]
 
-    def isErr = 0,
-        isDone = 0
+    def isDone = 0
 
     do {
       cli.title "User Register Page"
@@ -291,10 +352,10 @@ class LoanAccountSystem {
       
       cli.title "User Register Page"
       cli.center "Create the account?"
-      cli.display_warning_if isErr
-      def ans = cli.input "Enter(Y|N)"
+      
+      (isErr, answer, result) = cli.prompt_input isErr, InputType.yesNo, "Enter(Y|N)" 
 
-      switch(cli.isYesNo(ans)) {
+      switch(result) {
         case 1:
           // Pending DB task -----------------------------------
           // Insert new date in user_table
@@ -306,14 +367,19 @@ class LoanAccountSystem {
           this.WelcomePage();
           break
         default:
-          isErr = 1
+          break
       }
-    } while(isErr || !isDone)
+    } while (true)
   }
 
   void UserProfileRegisterPage(String username) {
-    def acc = [username:username],
-        errAnswer = 0,
+    def isError = 0,
+        answer = null,
+        result = 0
+
+    def acc = [username:username]
+
+    def errAnswer = 0,
         isErrDate = 0,
         isErrGender = 0
 
@@ -366,28 +432,24 @@ class LoanAccountSystem {
       }
 
       cli.break_line()
-      cli.display_warning_if errAnswer
-      def ans = cli.input "create profile(Y|N)"
+      (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Create Profile?(Y|N)" 
 
-      switch(cli.isYesNo(ans))
-      {
+      switch(result) {
         case 1:
-          errAnswer = 0
           // pending DB task ------------------------------------------------------------------------------
           // Update user's data in user_tbl
           // while displaying "creating account"
           // then return to user page
-          this.UserPage();
+          this.UserPage()
           break
         case 2:
-          errAnswer = 0
           // return to user page
-          this.UserPage();
+          this.UserPage()
           break
         default:
-          errAnswer = 1
+          break
       }
-    } while( isErrDate || isErrGender || errAnswer)
+    } while (true)
 
   }
 
@@ -445,39 +507,42 @@ class LoanAccountSystem {
            err = 1
           println "error occured in login method..."
       }
-    } while(!loginVerified || err);
+    } while (true);
 
   }
 
   void UserDashboard(){
-    def answer = null
-    int isErr = 0
+    def isError = 0,
+        answer = null,
+        result = 0
 
     do {
       cli.title "WELCOME TO LOAN SYSTEM"
       cli.center "DASHBOARD" 
       cli.options 5, "Borrow", "Pay loan", "Check Account Status", "Log out"
       
-      cli.display_warning_if isErr
+      (isError, answer, result) = cli.prompt_input isError
 
-      answer = cli.input()
       cli.link  answer,
                 this.&TransanctBorrow,
                 this.&TransactPayLoan,
                 this.&UserAccountPage,
                 this.&WelcomePage
-      isErr = 1
-    } while (isErr)
+
+    } while (true)
   }
 
   void TransanctBorrow() {
+    def isError = 0,
+        answer = null,
+        result = 0
+
     def acc = [:]
-    def answer = null,
-        isDone = [0, 0],
+    
+    def isDone = [0, 0],
         isErrAmount = 0,
         isErrTerms = 0,
         isErrAnswer = 0
-      int err = 0
 
     do {
       cli.title "BORROW DASHBOARD"
@@ -499,7 +564,7 @@ class LoanAccountSystem {
         continue
       }
       
-      cli.display_warning_if isErrTerms, 0
+      cli.display_warning_if isErrTerms
       if(acc.terms == null){
         acc.terms = cli.input "Payment Month(3,6,9,12)"
       } else {
@@ -522,14 +587,13 @@ class LoanAccountSystem {
         }
       }
 
-      cli.display_warning_if isErrAnswer
-      answer = cli.input "Are you sure?(Y|N)"
+      (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Are you sure?(Y|N)" 
 
-      switch(cli.isYesNo(answer)) {
+      switch(result) {
         case 1:
           // proceed to terms and condition
           this.TermsAndConditions()
-          // BD task -----------------------------------
+          // BD task -----------------------------------------------------------
           // create borrow data for the current user
           // currentUser.borrowTransaction()
           this.RecieptBorrowTransaction()
@@ -539,17 +603,18 @@ class LoanAccountSystem {
           this.UserDashboard()
           break
         case 0:
-          isErrAnswer = 1
           answer = null
           continue
         default:
           println "error"
       }
-    } while(isErrAmount || isErrTerms || isErrAnswer)
+    } while (true)
   }
 
   void RecieptBorrowTransaction() {
-    def isErr = 0;
+    def isError = 0,
+        answer = null,
+        result = 0
     
     do {
       cli.title "SUMMARY OF BILLING"
@@ -563,21 +628,17 @@ class LoanAccountSystem {
                         "Loan Starting Date",  "${dummyUser.dummy_borrow.date_created}",
                         "Monthly Payment",     "${dummyUser.dummy_borrow.monthly_payment}"
 
-      cli.display_warning_if isErr
-      def ans = cli.input "Enter 'y' to proceed to dashboard"
+      (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Enter 'Y' to proceed to dashboard"
+      if(result) this.UserDashboard()
 
-      if(cli.isYesNo(ans) == 1) {
-        isErr = 0;
-        this.UserDashboard()
-      } 
-
-      isErr = 1;
-    } while (isErr)
+    } while (true)
   }
 
   void TermsAndConditions() {
-    def errAnswer = 0,
-        answer = null
+    def isError = 0,
+        answer = null,
+        result = 0
+    
     do {
       cli.title "Loan Terms and Conditions."
 
@@ -587,23 +648,21 @@ class LoanAccountSystem {
                     "According to the conditions of the Note, interest will accrue and principal and interest will be due."
       
       cli.break_line()
-      answer = cli.input "I have agreed to the terms and conditions(y)"
-      if(cli.isYesNo(answer) == 1) {
-        errAnswer = 0
-      } else {
-        errAnswer = 1
-      }
-    } while (errAnswer)
+      (isError, answer, result) = cli.prompt_input isError, InputType.yes, "I have agreed to the terms and conditions(y)" 
+      if(result) return
+
+    } while (true)
     
-    return;
   }
 
   void TransactPayLoan(){
+    def isError = 0,
+        answer = null,
+        result = 0
+
     def isErrAmount = 0,
-        isErrAnswer = null,
         isDone = 0,
-        amount = null,
-        answer = null
+        amount = null    
 
     do {
       cli.title "PAYMENT SECTION" 
@@ -629,14 +688,14 @@ class LoanAccountSystem {
         continue
       }
 
-      // cli.break_line()
-      cli.display_warning_if isErrAnswer
-      answer = cli.input "Are you sure?(Y|N)"
+      cli.break_line()
+      (isError, answer, result) = cli.prompt_input isError, InputType.yesNo, "Are you sure?(Y|N)"
 
-      switch(cli.isYesNo(answer)) {
+      switch(result) {
         case 1:
           // Proceed Receipt Payment
-          // BD Task -----------------------------------
+          // Backend task ***************************************************************************************
+          // BD Task -----------------------------------------------------------------------------------
           // currentUser.payLoanTransaction()
           this.RecieptPayLoanTransaction()
           break
@@ -645,19 +704,22 @@ class LoanAccountSystem {
           this.UserDashboard()
           break
         case 0:
-          isErrAnswer = 1
           answer = null
           continue
         default:
           println "error"
+          break
       }
 
-    } while (isErrAmount || isErrAnswer)
+    } while (true)
     
   }
 
   void RecieptPayLoanTransaction() {
-    def isErr = 0;
+    def isError = 0,
+        answer = null,
+        result = 0
+
     do {
       cli.title "RECEIPT PAYMENT"
 
@@ -668,21 +730,18 @@ class LoanAccountSystem {
                        "Loan Date",         "${dummyUser.dummy_borrow.date_created}",
                        "Payment Date",      "${dummyUser.dummy_pay_loan.curent_loan_date}"
 
-
       cli.break_line()
-      cli.display_warning_if isErr
-      def answer = cli.input "Enter 'y' to proceed to dashboard"
-
-      if(cli.isYesNo(answer) == 1) {
-        isErr = 0
-        this.UserDashboard()
-      } 
-        isErr = 1
-    } while (isErr)
+      (isError, answer, result) = cli.prompt_input isError, InputType.yes, "Enter 'Y' to proceed to dashboard" 
+      if(result) this.UserDashboard()
+      
+    } while (true)
   }
   
   void UserAccountPage() {
-    int err = 0
+    def isError = 0,
+        answer = null,
+        result = 0
+
     do {
       cli.title "ACCOUNT STATUS"
       
@@ -692,53 +751,48 @@ class LoanAccountSystem {
                        "Outstanding Balance",      "${dummyUser.dummy_status.total_balance}",
                        "Remaining Term",           "${dummyUser.dummy_status.remaining_term} months"
 
-      cli.display_warning_if err  
-      def answer = cli.input "Enter 'Y' to return"
+      (isError, answer, result) = cli.prompt_input isError, InputType.yes, "Enter 'Y' to return"
       
-      switch(answer){
-        case 'y':
-        case 'Y':
+      switch(result){
+        case 1:
           this.UserDashboard()
         default:
-          err = 1
+          break
       }
-    } while (err)
+    } while (true)
   }
 
  
   void AdminPage(){ 
+    def isError = 0,
+        answer = null,
+        result = 0
+    
     int isErr = 0 
     do {
 
       cli.title "Admin Login Page"
+      
       cli.options 2, "Log in", "Return"
 
-      cli.display_warning_if isErr
-      def ans = cli.input()
+      (isError, answer, result) = cli.prompt_input isError
     
-      switch(ans) {
-        case '1':
-          isErr = 0
-          this.AdminLoginPage()
-          break
-        case '2':
-          isErr = 0
-          this.WelcomePage()
-          break
-        default:
-        isErr = 1
-      }
-    }while(isErr)
+      cli.link  answer,
+                this.&AdminLoginPage,
+                this.WelcomePage
+
+    } while (true)
   }
 
   void AdminLoginPage() {
+
     def acc = [:]
 
     def loginVerified = 0,
         isAdminExist = null,
         isPasswordRight = null;
 
-    do{
+    do {
       cli.title "Admin Login Page"
       cli.center "Enter 'return' to return" 
 
@@ -759,7 +813,8 @@ class LoanAccountSystem {
         this.WelcomePage();
       }
 
-      // Verify login
+      // Backend task ***************************************************************************************
+      // Verify login 
       switch (dummyAdmin.login(acc.admin, acc.password)) {
         case 1:
           isAdminExist = 0
@@ -776,37 +831,44 @@ class LoanAccountSystem {
         default: 
           println "error occured in login method...";
       }
-    } while(!loginVerified) 
+    } while (true) 
     // BD task --------------------------------------------
     // get admin account status
     this.AdminAccountPage()
   }
 
-
   void AdminAccountPage() {
-
-    int isErr = 0
-    do{
+    def isError = 0,
+        answer = null,
+        result = 0
+    
+    do {
 
       cli.title "Welcome to Administrator's Page" 
       cli.options 7, "Check Databases", "Log out"
 
-      cli.display_warning_if isErr
-      def answer = cli.input()
+      (isError, answer, result) = cli.prompt_input isError
       
       cli.link  answer,
                 this.&AdminDatabase,
                 this.&WelcomePage
 
-      isErr = 1
-    } while (isErr)
+    } while (true)
   }
 
   void AdminDatabase() {
-    cli.title "Status of Database"
+    // BackEnd task ***************************************************************************************
+    def isError = 0,
+        answer = null,
+        result = 0
+    
+    do {
 
-    cli.input "Press y to return"
-    this.AdminAccountPage()
+      cli.title "Status of Database"
+
+      cli.input "Press y to return"
+      this.AdminAccountPage()
+    } while (true)
   }
 }
 
