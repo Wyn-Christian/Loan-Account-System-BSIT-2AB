@@ -284,6 +284,11 @@ class UserAccount {
   def has_error = []
   def has_no_error = null
 
+  def admin = [
+    username: "johnDoe",
+    password: "John1234!"
+  ]
+  
   def input = [
     username    : null,
     password    : null,
@@ -335,6 +340,9 @@ class UserAccount {
 
 
   def error_script = [
+    admin : [
+      "Admin doesn't exist",
+    ],
     username : [
       "The username you entered already exist",
       "Please enter valid format of username",
@@ -365,6 +373,20 @@ class UserAccount {
     ],
   ]
   
+  def adminLogin() {
+    if(this.admin.username != this.input.username) {
+      assert this.admin.username == this.input.username
+      this.has_error = ['admin', 1]
+      return false   
+    }else if (this.admin.password != this.input.password){
+      this.has_error = ['password', 2]
+      return false
+    }
+
+    this.emptyInput()
+    return true
+  }
+
 
   void registerInput() {
     // CREATE user ------------------------------------------------
@@ -879,33 +901,16 @@ class DBUtilities {
    
 }
 
-
-class DummyAdmin {
-  def profile = [
-    admin: "johnDoe",
-    password: "1234"
-  ]
-   int login(admin, password) {
-    if(profile.admin != admin){
-      return 1
-    } else if (profile.password != password){
-      return 2
-    } else {
-      return 0
-    }
-  }
-}
-
-
 // The main application of the system
 class LoanAccountSystem {
   CLIUtilities cli = new CLIUtilities();
   UserAccount user = new UserAccount();
+  UserAccount admin = new UserAccount();
   DummyAdmin dummyAdmin = new DummyAdmin();
 
   void run() {
     // change this to open directly the page
-    this.UserLoginPage()
+    this.AdminLoginPage()
     
   }
 
@@ -1276,56 +1281,22 @@ class LoanAccountSystem {
   }
 
   void AdminLoginPage() {
-
-    def acc = [:]
-
-    def loginVerified = 0,
-        isAdminExist = null,
-        isPasswordRight = null;
-
     do {
       cli.title "Admin Login Page"
-      cli.center "Enter 'return' to return" 
 
-      if(isAdminExist == 0) {
-        cli.center "the Admin you've entered doesn't exist" 
-      } else if(isPasswordRight == 0) {
-        cli.center "You've entered the wrong password" 
-      } else {
-        cli.break_line()
-      }
+      cli.user_input_warning user
+
+      cli.user_input  user, this.&AdminLoginPage, this.&WelcomePage,
+                      UserInput.username,
+                      UserInput.password
       
-      acc.admin = cli.input "Admin"
-      if(acc.admin == 'return') {
-        this.WelcomePage();
+      if(user.adminLogin()){
+        this.AdminAccountPage()
       }
-      acc.password = cli.input "password"
-      if(acc.password == 'return') {
-        this.WelcomePage();
-      }
-
-      // Backend task ***************************************************************************************
-      // Verify login 
-      switch (dummyAdmin.login(acc.admin, acc.password)) {
-        case 1:
-          isAdminExist = 0
-          break
-        case 2:
-          isAdminExist = 1
-          isPasswordRight = 0
-          break
-        case 0:
-          isAdminExist = 1
-          isPasswordRight = 1
-          loginVerified = 1
-          break
-        default: 
-          println "error occured in login method...";
-      }
+      user.emptyInput()
+      continue
+    
     } while (true) 
-    // BD task --------------------------------------------
-    // get admin account status
-    this.AdminAccountPage()
   }
 
   void AdminAccountPage() {
@@ -1336,7 +1307,8 @@ class LoanAccountSystem {
     do {
 
       cli.title "Welcome to Administrator's Page" 
-      cli.options 7, "Check Databases", "Log out"
+      cli.options 7, "Check Databases",
+                     "Log out"
 
       (isError, answer, result) = cli.prompt_input isError
       
