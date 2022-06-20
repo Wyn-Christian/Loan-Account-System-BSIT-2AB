@@ -267,8 +267,13 @@ class CLIUtilities {
     NumberFormat format = NumberFormat.getCurrencyInstance();
     def result = []
     for(num in number) {
-      String currency = format.format(num).replace('$','P ');
-      result.add(currency)
+      try{
+        String currency = format.format(num).replace('$','P ');
+        result.add(currency)
+      } catch (e) {
+        println "ERROR: $e"   
+        result.add(num)
+      }
     }
     return result
   }
@@ -490,32 +495,29 @@ class UserAccount {
     this.latest_payment = DB.getLatestPaymentByUserID(this.profile.ID)
 
     // calculations for updating status
-    def amount = this.latest_payment.amount
-    // term = Integer.parseInt(this.status.remaining_term)
+    def amount = this.latest_payment.amount,
+        total_balance = this.status.total_balance - amount
+    
     data = [
       user_ID : this.profile.ID,
-      total_balance : this.status.total_balance - amount,
+      total_balance : total_balance,
       total_paid_amount : this.status.total_paid_amount + amount,
       remaining_term : this.status.remaining_term - 1,
       date_updated : this.latest_payment.date_created,
     ]
+    
+    if (total_balance > -1) {
+      data.current_borrow_ID = null
+      data.remaining_term = 0
+
+    } 
+
     // update status
     DB.updateStatus('pay_loan', data);
 
     this.status = DB.getStatusByID(this.profile.ID)
 
     this.emptyInput()
-  }
-
-  def updateStatus(type){
-    switch(type){
-      case 'borrow':
-        this.status
-      break
-      case 'pay_loan':
-
-      break
-    }
   }
   
   void verifyPaymentAmount() {
@@ -591,7 +593,11 @@ class UserAccount {
   }
 
   def isValidAmount(String str) {
-     str =~ /\b\d+\b/ ? true : 1
+    
+    if(!(str =~ /\b\d+\b/)){
+      return 1
+    } 
+    return true
   }
 
   def isValidUsername(String str) {
@@ -756,14 +762,27 @@ class DBUtilities {
       break
       // update this sht
       case 'pay_loan':
-        sqlstr = """
-            UPDATE user_status_tbl 
-            SET total_balance = $data.total_balance, 
-                total_paid_amount = $data.total_paid_amount,
-                date_updated = $data.date_updated,
-                remaining_term = $data.remaining_term
-            WHERE user_ID = $data.user_ID;
-        """
+        if(data.total_balance){
+          sqlstr = """
+              UPDATE user_status_tbl 
+              SET total_balance = $data.total_balance, 
+                  total_paid_amount = $data.total_paid_amount,
+                  date_updated = $data.date_updated,
+                  remaining_term = $data.remaining_term
+              WHERE user_ID = $data.user_ID;
+          """
+        } else {
+          sqlstr = """
+              UPDATE user_status_tbl 
+              SET current_borrow_ID = null,
+                  total_balance = null, 
+                  total_paid_amount = $data.total_paid_amount,
+                  date_updated = $data.date_updated,
+                  remaining_term = $data.remaining_term
+              WHERE user_ID = $data.user_ID;
+          """
+
+        }
       break
       default:
         return;
@@ -1142,13 +1161,20 @@ class LoanAccountSystem {
       cli.title "PAYMENT SECTION" 
 
       cli.user_input_warning user
-      def interest = (int)(user.current_borrow.interest * 100)
-      def (amount) = cli.numberToCurrency user.current_borrow.amount
+      def interest = (float)(user.current_borrow.interest * 100)
+      def (amount, balance) = cli.numberToCurrency user.current_borrow.amount,
+                                          user.status.total_balance
       
-      cli.display_data  "Loan Amount",  "$amount",
-                        "Term",         "${user.current_borrow.term}",
-                        "Interest",     "$interest%"
+      cli.display_data  "Loan Amount",    "$amount",
+                        "Term",           "${user.current_borrow.term}",
+                        "Interest",       "$interest%",
+                        "Monthly Payment", "$user.current_borrow.monthly_payment"
 
+      cli.display_data  "Amount Payable",  "$balance",
+                        "Remaining term",     "$user.status.remaining_term"
+
+      cli.break_line()
+    
       cli.user_input  user, this.&TransactPayLoan, this.&UserDashboard,
                       UserInput.amount
 
