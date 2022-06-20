@@ -264,7 +264,6 @@ class CLIUtilities {
   }
 
   def numberToCurrency(Object... number) {
-
     NumberFormat format = NumberFormat.getCurrencyInstance();
     def result = []
     for(num in number) {
@@ -274,7 +273,6 @@ class CLIUtilities {
     return result
   }
 }
-
 
 class UserAccount {
   DBUtilities DB = new DBUtilities()
@@ -288,46 +286,46 @@ class UserAccount {
     lastname    : null,
     birthday    : null,
     gender      : null,
-    repassword  : false
+    repassword  : false,
   ]
 
   def profile = [
-    ID        : '1',
-    username  : 'wynchristian',
-    firstname : 'Wyn Christian',
-    lastname  : 'Rebanal',
-    birthday  : '2002-03-03',
-    gender    : 'm',
+    ID        : null,
+    username  : null,
+    firstname : null,
+    lastname  : null,
+    birthday  : null,
+    gender    : null,
   ]
 
   def status = [
-    ID                : "1001",
-    user_ID           : "1",
-    current_borrow_ID : "3001",
-    current_loan      : 51000,
-    remaining_term    : 2,
-    total_balance     : 28900,
-    total_paid_amount : 34000,
-    date_created      : "2022-01-16 18:00:32",
-    date_updated      : "2022-06-16 18:00:32"
+    ID                : null,
+    user_ID           : null,
+    current_borrow_ID : null,
+    current_loan      : null,
+    remaining_term    : null,
+    total_balance     : null,
+    total_paid_amount : null,
+    date_created      : null,
+    date_updated      : null,
   ]
 
   def current_borrow = [
-    ID                : "3001",
-    amount            : 50000,
-    term              : 6,
-    interest          : 0.02,
-    total_interest    : 1000,
-    principal_amount  : 51000 /*getPrincipalAmount(amount, interest)*/,
-    date_created      : "2022-02-17 12:45:03",
-    monthly_payment   : 8500 /* getMonthlyPayment(principal_amount, term)*/
+    ID                : null,
+    amount            : null,
+    term              : null,
+    interest          : null,
+    total_interest    : null,
+    principal_amount  : null,
+    date_created      : null,
+    monthly_payment   : null,
   ]
 
   def latest_payment = [
-    ID                : "4001",
-    borrow_ID         : "3001",
-    amount            : 8500,
-    curent_loan_date  : "2022-06-16 18:00:32",
+    ID                : null,
+    borrow_ID         : null,
+    amount            : null,
+    date_created      : null,
   ]
 
 
@@ -361,6 +359,7 @@ class UserAccount {
       "Please choose available payment plan!",
     ],
   ]
+  
 
   void registerInput() {
     // CREATE user ------------------------------------------------
@@ -374,6 +373,7 @@ class UserAccount {
   }
 
   def login() {
+    // GET user by ID 
     def userID = DB.getIDByUsername(this.input.username);
     if(userID == 0) {
       this.has_error = ['username', 3]
@@ -385,8 +385,13 @@ class UserAccount {
 
     this.emptyInput()
 
+    // if login verified, then GET the profile and status by userID 
     this.profile = DB.getProfileByID(userID)
     this.status = DB.getStatusByID(userID)
+    if(this.status.current_borrow_ID) {
+      this.getCurrentBorrow()
+    }
+    
     return true
   }
 
@@ -445,16 +450,79 @@ class UserAccount {
   }
 
   void transactBorrow(){
-    DB.createLoan(this.profile, this.input)
+    def data = [
+      user_ID : this.profile.ID,
+      amount : this.input.amount,
+      term : this.input.term,
+    ]
+    // CREATE new borrow data
+    DB.createTransact('borrow', data)
+    // STORE the new borrow data
+    this.getCurrentBorrow()
+    // UPDATE user's status
+    DB.updateStatus('borrow', this.current_borrow);
+    // GET user's status
+    this.status = DB.getStatusByID(this.profile.ID)
+
+    this.emptyInput()
+  }
+  
+  void getCurrentBorrow() {
     this.current_borrow = DB.getCurrentBorrowByUserID(this.profile.ID)
 
+    // Create 'interest', 'principal_amount', 'total_interest' and 
+    //    'monthly_payment' in current_borrow
     this.current_borrow.interest = this.getInterestRate(this.current_borrow.term)
     this.current_borrow.principal_amount = this.getPrincipalAmount(this.current_borrow.amount, this.current_borrow.interest)
     this.current_borrow.total_interest = this.current_borrow.principal_amount - this.current_borrow.amount
     this.current_borrow.monthly_payment = this.getMonthlyPayment((double)this.current_borrow.principal_amount, this.current_borrow.term)
+  }
 
-    DB.updateStatusBorrow(this.current_borrow);
+  void transactPayLoan() {
+    def data = [
+      user_ID : this.profile.ID,
+      borrow_ID : this.current_borrow.ID,
+      amount : this.input.amount,
+    ]
+    // CREATE new pay_loan data
+    DB.createTransact('pay_loan', data)
+    // store the new pay_loan data to latest_payment
+    this.latest_payment = DB.getLatestPaymentByUserID(this.profile.ID)
+
+    // calculations for updating status
+    def amount = this.latest_payment.amount
+    // term = Integer.parseInt(this.status.remaining_term)
+    data = [
+      user_ID : this.profile.ID,
+      total_balance : this.status.total_balance - amount,
+      total_paid_amount : this.status.total_paid_amount + amount,
+      remaining_term : this.status.remaining_term - 1,
+      date_updated : this.latest_payment.date_created,
+    ]
+    // update status
+    DB.updateStatus('pay_loan', data);
+
     this.status = DB.getStatusByID(this.profile.ID)
+
+    this.emptyInput()
+  }
+
+  def updateStatus(type){
+    switch(type){
+      case 'borrow':
+        this.status
+      break
+      case 'pay_loan':
+
+      break
+    }
+  }
+  
+  void verifyPaymentAmount() {
+    // verify the user's amount payment 
+    // return error when user:
+    // ...entered higher than the total_balance
+    // ...entered lower than requirement
   }
   
   double getInterestRate(term) {
@@ -634,50 +702,87 @@ class DBUtilities {
   }
 
   // Insert new borrow data
-  void createLoan(profile, inputs){
+  void createTransact(type, data){
     long d = System.currentTimeMillis();
     def current_date  = new Date(d).format("YYYY-MM-dd HH:mm:ss");
 
-    def sqlstr = """
-        INSERT INTO borrow_tbl (user_ID, amount, term, date_created) 
-              VALUES ($profile.ID, $inputs.amount, $inputs.term, $current_date);
-      """
+    def sqlstr;
+    switch(type){
+      case 'borrow':
+        sqlstr = """
+          INSERT INTO borrow_tbl (user_ID, amount, term, date_created) 
+                VALUES ($data.user_ID, $data.amount, $data.term, $current_date);
+        """
+      break
+      case 'pay_loan':
+        sqlstr = """
+          INSERT INTO pay_loan_tbl (user_ID, borrow_ID, amount, date_created) 
+                VALUES ($data.user_ID, $data.borrow_ID, $data.amount, $current_date);
+        """
+      break
+      default:
+        return;
+    }
+    
 
     try {
         sql.execute(sqlstr);
         sql.commit()
-        println "created loan"
+        
+        println "${type == 'borrow' ? "CREATE borrow" : "CREATE pay loan"}"
     }catch(Exception ex) {
         sql.rollback()
-        println "failed inserting loan"
+        println "${type == 'borrow' ? "failed: CREATE borrow" : "failed: CREATE pay loan"}"
+
     }
   }
   
 
   // UPDATE ------------------------------------------------------------------------------------------------------------------------
-  void updateStatusBorrow(borrow) {
-    def sqlstr = """
-				UPDATE user_status_tbl 
-				SET current_borrow_ID = $borrow.ID, 
-            current_loan = $borrow.principal_amount, 
-            total_balance = $borrow.principal_amount, 
-            total_paid_amount = 0,
-            date_updated = $borrow.date_created,
-            remaining_term = $borrow.term
-				WHERE user_ID = $borrow.user_ID;
-		"""
+  void updateStatus(type, data) {
+    def sqlstr;
+    switch(type){
+      case 'borrow':
+        sqlstr = """
+            UPDATE user_status_tbl 
+            SET current_borrow_ID = $data.ID, 
+                current_loan = $data.principal_amount, 
+                total_balance = $data.principal_amount, 
+                total_paid_amount = 0,
+                date_updated = $data.date_created,
+                remaining_term = $data.term
+            WHERE user_ID = $data.user_ID;
+        """
+      break
+      // update this sht
+      case 'pay_loan':
+        sqlstr = """
+            UPDATE user_status_tbl 
+            SET total_balance = $data.total_balance, 
+                total_paid_amount = $data.total_paid_amount,
+                date_updated = $data.date_updated,
+                remaining_term = $data.remaining_term
+            WHERE user_ID = $data.user_ID;
+        """
+      break
+      default:
+        return;
+    }
 
 		try {
 				sql.execute(sqlstr);
 				sql.commit()
-				println("Successfully upated user's status") 
+        println "${type == 'borrow' ? "UPDATE status-borrow" : "UPDATE status-pay loan"}"
 		}catch(Exception ex) {
 				sql.rollback()
-				println("Transaction rollback") 
+        println "${type == 'borrow' ? "failed: UPDATE status-borrow" : "failed: UPDATE status-pay loan"}"
+
 		}
 
   }
-   // READ ------------------------------------------------------------------------------------------------------------------------
+
+
+  // READ ------------------------------------------------------------------------------------------------------------------------
   // Select current user's data
   int getUserID(String username, String password) {
     def sqlscript = """
@@ -742,8 +847,19 @@ class DBUtilities {
     def result = sql.firstRow(sqlscript);
     return result;
   }
+  def getLatestPaymentByUserID(int userID){
+    def sqlscript = """
+      SELECT * 
+         FROM pay_loan_tbl
+         WHERE user_ID = $userID
+         ORDER BY date_created DESC
+    """
+    def result = sql.firstRow(sqlscript);
+    return result;
+  }
    
 }
+
 
 class DummyAdmin {
   def profile = [
@@ -761,6 +877,7 @@ class DummyAdmin {
   }
 }
 
+
 // The main application of the system
 class LoanAccountSystem {
   CLIUtilities cli = new CLIUtilities();
@@ -769,7 +886,7 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.WelcomePage()
+    this.UserLoginPage()
     
   }
 
@@ -1040,15 +1157,11 @@ class LoanAccountSystem {
 
       switch(result) {
         case 1:
-          // Proceed Receipt Payment
-          // Backend task ***************************************************************************************
-          // BD Task -----------------------------------------------------------------------------------
-          // currentUser.payLoanTransaction()
+          user.transactPayLoan()
           this.RecieptPayLoanTransaction()
           break
         case 2:
-          // return to dashboard
-          user.input = []
+          user.emptyInput()
           this.UserDashboard()
           break
         case 0:
@@ -1079,7 +1192,7 @@ class LoanAccountSystem {
                        "Total Paid",        "$total_paid",
                        "Remaining Term",    "${user.status.remaining_term} months",
                        "Loan Date",         "${user.current_borrow.date_created}",
-                       "Payment Date",      "${user.latest_payment.curent_loan_date}"
+                       "Payment Date",      "${user.latest_payment.date_created}"
 
       cli.break_line()
       (isError, answer, result) = cli.prompt_input isError, InputType.yes, "Enter 'Y' to proceed to dashboard" 
