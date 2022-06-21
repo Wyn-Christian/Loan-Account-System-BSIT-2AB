@@ -33,6 +33,7 @@ enum UserInput {
 
 
 // A class that consists of utilities for CLI
+// includes UI design and input handling
 class CLIUtilities {
   
   Scanner read = new Scanner(System.in);
@@ -279,6 +280,8 @@ class CLIUtilities {
   }
 }
 
+// A class that consists a user input validator
+// and handles internal state data
 class UserAccount {
   DBUtilities DB = new DBUtilities()
   def has_error = []
@@ -906,7 +909,6 @@ class LoanAccountSystem {
   CLIUtilities cli = new CLIUtilities();
   UserAccount user = new UserAccount();
   UserAccount admin = new UserAccount();
-  DummyAdmin dummyAdmin = new DummyAdmin();
 
   void run() {
     // change this to open directly the page
