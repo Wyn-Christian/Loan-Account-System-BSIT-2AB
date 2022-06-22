@@ -912,7 +912,7 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.AdminLoginPage()
+    this.WelcomePage()
     
   }
 
@@ -1147,7 +1147,7 @@ class LoanAccountSystem {
                         "Term",                "${user.current_borrow.term} months",
                         "Interest",            "$interest%",
                         "Total Interest",      "$total_interest",
-                        "Total Amount to pay", "$total_amount",
+                        "Total Amount to Pay", "$total_amount",
                         "Loan Starting Date",  "${user.current_borrow.date_created.format('yyyy-MM-dd HH:mm:ss')}",
                         "Monthly Payment",     "$monthly_payment"
 
@@ -1172,13 +1172,13 @@ class LoanAccountSystem {
       def (amount, balance) = cli.numberToCurrency user.current_borrow.amount,
                                           user.status.total_balance
       
-      cli.display_data  "Loan Amount",    "$amount",
-                        "Term",           "${user.current_borrow.term}",
-                        "Interest",       "$interest%",
+      cli.display_data  "Loan Amount",     "$amount",
+                        "Term",            "${user.current_borrow.term}",
+                        "Interest",        "$interest%",
                         "Monthly Payment", "$user.current_borrow.monthly_payment"
 
       cli.display_data  "Amount Payable",  "$balance",
-                        "Remaining term",     "$user.status.remaining_term"
+                        "Remaining term",  "$user.status.remaining_term"
 
       cli.break_line()
     
