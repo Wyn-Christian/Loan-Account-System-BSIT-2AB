@@ -368,7 +368,9 @@ class UserAccount {
       "Invalid gender format!"
     ],
     amount : [
-      "Please enter valid 'amount' format!"
+      "Please enter valid 'amount' format!",
+      "Too low for the monthly payment requirement!",
+      "Amount exceeded the total balance!"
     ],
     term : [
       "Please enter valid term input!",
@@ -522,7 +524,7 @@ class UserAccount {
     // calculations for updating status
     def amount = this.latest_payment.amount,
         total_balance = this.status.total_balance - amount
-    
+        
     data = [
       user_ID : this.profile.ID,
       total_balance : total_balance,
@@ -531,7 +533,7 @@ class UserAccount {
       date_updated : this.latest_payment.date_created,
     ]
     
-    if (total_balance > -1) {
+    if (total_balance < 1) {
       data.current_borrow_ID = null
       data.remaining_term = 0
 
@@ -543,13 +545,6 @@ class UserAccount {
     this.status = DB.getStatusByID(this.profile.ID)
 
     this.emptyInput()
-  }
-  
-  void verifyPaymentAmount() {
-    // verify the user's amount payment 
-    // return error when user:
-    // ...entered higher than the total_balance
-    // ...entered lower than requirement
   }
   
   double getInterestRate(term) {
@@ -622,6 +617,20 @@ class UserAccount {
     if(!(str =~ /\b\d+\b/)){
       return 1
     } 
+    if(this.status.current_borrow_ID) {
+      def amount  = Double.parseDouble(str)
+      if(amount < 0){
+        return 1
+      }
+      if(this.status.total_balance > this.current_borrow.monthly_payment){
+        if(amount < this.current_borrow.monthly_payment) {
+          return 2
+        }
+      }
+      if(amount > this.status.total_balance){
+          return 3
+        }
+    }
     return true
   }
 
@@ -787,6 +796,7 @@ class DBUtilities {
       break
       // update this sht
       case 'pay_loan':
+      println "TESTING payloan data = $data"
         if(data.total_balance){
           sqlstr = """
               UPDATE user_status_tbl 
@@ -1169,13 +1179,15 @@ class LoanAccountSystem {
 
       cli.user_input_warning user
       def interest = (float)(user.current_borrow.interest * 100)
-      def (amount, balance) = cli.numberToCurrency user.current_borrow.amount,
-                                          user.status.total_balance
+      def (amount, balance, monthly_payment) = cli.numberToCurrency user.current_borrow.amount,
+                                          user.status.total_balance,
+                                          user.current_borrow.monthly_payment
+
       
       cli.display_data  "Loan Amount",     "$amount",
                         "Term",            "${user.current_borrow.term}",
                         "Interest",        "$interest%",
-                        "Monthly Payment", "$user.current_borrow.monthly_payment"
+                        "Monthly Payment", "$monthly_payment"
 
       cli.display_data  "Amount Payable",  "$balance",
                         "Remaining term",  "$user.status.remaining_term"
