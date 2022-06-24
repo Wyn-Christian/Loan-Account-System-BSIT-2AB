@@ -3,6 +3,7 @@ import java.sql.*
 import java.text.NumberFormat;
 import java.util.Locale;
 import java.text.DecimalFormat 
+import java.time.format.DateTimeFormatter;
 
 // This is the main program that starts the application
 class Main {
@@ -195,6 +196,7 @@ class CLIUtilities {
       }
     }
   }
+  
 
   def user_input_warning(UserAccount user) {
     if(user.has_error) {
@@ -208,6 +210,43 @@ class CLIUtilities {
     }
       this.break_line()
   }
+
+  def table(UserAccount admin) {
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    def result = admin.getStatusbyAdmin()
+    def data = []
+    def space = 15
+    println "ID".center(5) + "|"  +
+            "user".center(space) + "|" +
+            "Loan".center(space) + "|" +
+            "Balance".center(space) + "|" +
+            "Paid".center(space) + "|" +
+            "Last Activity".center(30)
+     result.each { val -> 
+      if(val.current_borrow_ID){
+        data = [
+          current_loan : this.numberToCurrency(val.current_loan)[0],
+          total_balance : this.numberToCurrency(val.total_balance)[0],
+          total_paid_amount : this.numberToCurrency(val.total_paid_amount)[0],
+        ]
+      } else {
+        data = [
+          current_loan : "n/a",
+          total_balance : "n/a",
+          total_paid_amount : "n/a",
+        ]
+      }
+      println "${val.ID}".center(5) + "|"  +
+              "${val.username}".center(space) + "|" +
+              "${data.current_loan}".center(space) + "|" +
+              "${data.total_balance}".center(space) + "|" +
+              "${data.total_paid_amount}".center(space) + "|" +
+              "${val.last_activity.format(formatter)}".center(30)
+     };
+
+     this.break_line()
+  }
+  
   def check_status(UserAccount user, String type, Object errPage){
     switch(type){
       case "borrow":
@@ -571,6 +610,26 @@ class UserAccount {
     return principal / term
   }
 
+  def getStatusbyAdmin(){
+    def (status, users) = DB.getUsersStatus()
+    
+    def result = []
+
+    users.eachWithIndex {  val, i -> 
+      def current = [
+        username : val.username,
+        ID : val.ID,
+        current_loan : status[i].current_loan,
+        current_borrow_ID : status[i].current_borrow_ID,
+        total_balance : status[i].total_balance,
+        total_paid_amount : status[i].total_paid_amount,
+        last_activity : status[i].date_updated,
+      ]      
+     result << current;
+    }
+    return result;
+  }
+
   
   def inputValidator(type, str) {
      def validator = [
@@ -764,13 +823,12 @@ class DBUtilities {
         return;
     }
     
-
     try {
         sql.execute(sqlstr);
         sql.commit()
         
         println "${type == 'borrow' ? "CREATE borrow" : "CREATE pay loan"}"
-    }catch(Exception ex) {
+    } catch(Exception ex) {
         sql.rollback()
         println "${type == 'borrow' ? "failed: CREATE borrow" : "failed: CREATE pay loan"}"
 
@@ -911,6 +969,18 @@ class DBUtilities {
     def result = sql.firstRow(sqlscript);
     return result;
   }
+
+  def getUsersStatus(){
+    sql.close()
+    this.connect()
+    def status = sql.rows("SELECT * FROM user_status_tbl");
+    def user = [];
+    status.each {data ->
+      user << sql.firstRow("SELECT * FROM user_tbl WHERE ID = $data.user_ID")
+    }
+    return [status, user]
+  }
+
    
 }
 
@@ -922,7 +992,7 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.WelcomePage()
+    this.AdminDatabase()
     
   }
 
@@ -1343,8 +1413,12 @@ class LoanAccountSystem {
 
       cli.title "Status of Database"
 
-      cli.input "Press y to return"
-      this.AdminAccountPage()
+      cli.table admin
+      
+      (isError, answer, result) = cli.prompt_input isError, InputType.yes, "Enter 'Y' to return"
+      if(result) this.AdminAccountPage()
+      // cli.input "Press y to return"
+      // this.AdminAccountPage()
     } while (true)
   }
 
