@@ -38,7 +38,7 @@ enum UserInput {
 class CLIUtilities {
   
   Scanner read = new Scanner(System.in);
-  def padding = 35,
+  def padding = 40,
       midPadding = padding * 2
   
   public static void clrscr(){
@@ -959,6 +959,7 @@ class DBUtilities {
     def result = sql.firstRow(sqlscript);
     return result;
   }
+
   def getLatestPaymentByUserID(int userID){
     def sqlscript = """
       SELECT * 
@@ -992,7 +993,7 @@ class LoanAccountSystem {
 
   void run() {
     // change this to open directly the page
-    this.AdminDatabase()
+    this.WelcomePage()
     
   }
 
@@ -1438,5 +1439,4 @@ class LoanAccountSystem {
   }
   
 }
-
 
