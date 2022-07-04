@@ -419,7 +419,6 @@ class UserAccount {
   
   def adminLogin() {
     if(this.admin.username != this.input.username) {
-      assert this.admin.username == this.input.username
       this.has_error = ['admin', 1]
       return false   
     }else if (this.admin.password != this.input.password){
